@@ -11,7 +11,7 @@
   --text-faint: #5e719a;
 
   --accent: #00e5ff;
-  --accent-soft: rgba(0, 229, 255, 0.14);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --magenta: #ff2d95;
   --amber: #ffb300;
   --green: #54e08a;
@@ -80,7 +80,7 @@ body.no-scanlines .scanlines {
 }
 
 body.no-glow {
-  --accent-soft: rgba(0, 229, 255, 0.08);
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 ::-webkit-scrollbar {

@@ -6,7 +6,9 @@ import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   FPS_OPTIONS,
+  ACCENT_PRESETS,
 } from '../../state/settings.js';
+import { isValidHex } from '../../core/color.js';
 import { MUSIC_TRACKS, playTrack, stopMusic } from '../../audio/music.js';
 import { BACKGROUNDS } from '../../render/background.js';
 import { sfx } from '../../audio/sfx.js';
@@ -110,6 +112,49 @@ export function settingsScreen(app) {
   const toggle = (checked, onChange) =>
     el('input', { type: 'checkbox', checked, onchange: (event) => onChange(event.target.checked) });
 
+  // A swatch is a small button; clicking it applies that preset immediately.
+  // The custom colour input stays in sync so it always reflects the active
+  // colour, whichever way it was set.
+  const swatchButtons = [];
+  const customColorInput = el('input', {
+    type: 'color',
+    value: app.settings.accentColor,
+    class: 'accent-custom-input',
+    oninput: (event) => applyAccent(event.target.value, null),
+  });
+
+  function applyAccent(color, presetId) {
+    if (!isValidHex(color)) return;
+    app.updateSettings({ accentColor: color });
+    customColorInput.value = color;
+    for (const btn of swatchButtons) {
+      btn.classList.toggle('active', btn.dataset.presetId === presetId && presetId !== null);
+    }
+  }
+
+  for (const preset of ACCENT_PRESETS) {
+    const isActive = preset.color.toLowerCase() === app.settings.accentColor.toLowerCase();
+    const btn = el('button.accent-swatch', {
+      type: 'button',
+      class: isActive ? 'active' : '',
+      style: { '--swatch-color': preset.color },
+      title: t(`accent.${preset.id}`),
+      dataset: { presetId: preset.id },
+      onclick: () => {
+        sfx.click();
+        applyAccent(preset.color, preset.id);
+      },
+    });
+    swatchButtons.push(btn);
+  }
+
+  const accentRow = el(
+    'div.row',
+    {},
+    el('span.label', {}, t('accent_color')),
+    el('div.accent-picker', {}, ...swatchButtons, customColorInput),
+  );
+
   const backgroundSelect = el(
     'select',
     {
@@ -170,6 +215,7 @@ export function settingsScreen(app) {
     group(
       t('display'),
       row(t('language'), languageSelect),
+      accentRow,
       row(t('background'), backgroundSelect),
       row(t('fps_cap'), fpsSelect),
       row(t('show_fps'), toggle(app.settings.showFps, (v) => app.updateSettings({ showFps: v }))),

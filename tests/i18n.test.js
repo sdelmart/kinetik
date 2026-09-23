@@ -29,15 +29,19 @@ describe('translations', () => {
     expect(t('{a} / {b}', { a: 1, b: 2 })).toBe('1 / 2');
   });
 
-  it('names every music track and background in every language', async () => {
+  it('names every music track, background and accent preset in every language', async () => {
     const { MUSIC_TRACKS } = await import('../src/audio/music.js');
     const { BACKGROUND_IDS } = await import('../src/render/background.js');
+    const { ACCENT_PRESETS } = await import('../src/state/settings.js');
     for (const lang of LANGUAGES) {
       for (const track of MUSIC_TRACKS) {
         expect(CATALOGS[lang][`track.${track.id}`], `${lang}/track.${track.id}`).toBeTruthy();
       }
       for (const id of BACKGROUND_IDS) {
         expect(CATALOGS[lang][`bg.${id}`], `${lang}/bg.${id}`).toBeTruthy();
+      }
+      for (const preset of ACCENT_PRESETS) {
+        expect(CATALOGS[lang][`accent.${preset.id}`], `${lang}/accent.${preset.id}`).toBeTruthy();
       }
     }
   });

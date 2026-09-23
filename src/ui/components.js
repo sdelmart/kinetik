@@ -1,6 +1,19 @@
 import { t } from '../i18n/index.js';
 import { sfx } from '../audio/sfx.js';
 
+/**
+ * Applies a style object to a CSSStyleDeclaration (or anything shaped like
+ * one). Split out from `el()` so the one non-obvious part of it — that CSS
+ * custom properties need `setProperty()`, since plain assignment silently
+ * no-ops for them — is unit-testable without a real DOM.
+ */
+export function applyInlineStyle(style, props) {
+  for (const [prop, value] of Object.entries(props)) {
+    if (prop.startsWith('--')) style.setProperty(prop, value);
+    else style[prop] = value;
+  }
+}
+
 /** Tiny DOM builder: el('div.card', {onclick}, 'text', childNode) */
 export function el(spec, props = {}, ...children) {
   const [tag, ...classes] = spec.split('.');
@@ -10,7 +23,7 @@ export function el(spec, props = {}, ...children) {
   for (const [key, value] of Object.entries(props ?? {})) {
     if (value === null || value === undefined || value === false) continue;
     if (key === 'class') node.className = `${node.className} ${value}`.trim();
-    else if (key === 'style' && typeof value === 'object') Object.assign(node.style, value);
+    else if (key === 'style' && typeof value === 'object') applyInlineStyle(node.style, value);
     else if (key === 'dataset') Object.assign(node.dataset, value);
     else if (key.startsWith('on') && typeof value === 'function') {
       node.addEventListener(key.slice(2), value);

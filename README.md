@@ -30,7 +30,7 @@ aucun fichier image ni audio à installer.
 | Commande | Effet |
 |---|---|
 | `npm run dev` | Serveur de développement avec rechargement à chaud |
-| `npm test` | Suite de tests (301 tests) |
+| `npm test` | Suite de tests (326 tests) |
 | `npm run test:watch` | Tests en continu |
 | `npm run calibrate` | Résout les 50 niveaux et affiche le nombre de coups optimal |
 | `npm run calibrate -- --write` | Trie chaque secteur par difficulté et recalcule les références |
@@ -175,18 +175,29 @@ Tout est dans **Réglages**, et persiste entre deux sessions :
   code physique, donc un clavier AZERTY garde la même disposition.
 - **Audio** — 5 pistes musicales (*Pulse, Dérive, Forge, Vapeur, Broyeur*) plus
   *Silence*, volumes musique et effets séparés, coupure rapide du son.
-- **Affichage** — langue (4), **fond animé** (5 ambiances), **limite d'images par
-  seconde** (30 / 60 / 120 / illimité) avec compteur FPS optionnel, halo néon,
-  lignes de balayage, grille du plateau.
+- **Affichage** — langue (4), **couleur d'interface**, **fond animé** (5
+  ambiances), **limite d'images par seconde** (30 / 60 / 120 / illimité) avec
+  compteur FPS optionnel, halo néon, lignes de balayage, grille du plateau.
 
 La limite d'images s'applique au plateau **et** au fond animé : à 30 FPS sur un
 portable, le jeu consomme nettement moins de batterie ; en « illimité » il suit
 la fréquence de l'écran (144 Hz compris).
 
 Les 5 fonds — *Grille, Nébuleuse, Circuit, Pluie de données, Vide* — sont
-dessinés au canvas et se teintent de la couleur du secteur en cours. Les plus
-coûteux sont rendus dans un tampon basse résolution, le fond fixe ne consomme
-aucune frame, et `prefers-reduced-motion` désactive l'animation.
+dessinés au canvas et se teintent de la couleur choisie. Les plus coûteux sont
+rendus dans un tampon basse résolution, le fond fixe ne consomme aucune frame,
+et `prefers-reduced-motion` désactive l'animation.
+
+**Couleur d'interface** — 6 teintes prédéfinies ou n'importe quelle couleur via
+le sélecteur natif, appliquée instantanément à tous les boutons, au logo et au
+fond animé, en dehors des niveaux. À l'intérieur d'un secteur, la couleur du
+secteur reste utilisée pour le plateau de jeu — les deux ne se mélangent pas,
+c'est la couleur du secteur qui identifie où vous êtes.
+
+**Quitter le jeu** — un bouton dédié apparaît dans le menu, mais uniquement
+dans l'application native (le `.exe`/`.dmg`/`.AppImage`) : fermer un onglet de
+navigateur par script est bloqué par la plupart des navigateurs, le bouton
+n'y serait donc jamais qu'un bouton mort.
 
 ---
 
@@ -253,7 +264,7 @@ bien étoilé), et nombre de succès débloqués.
 npm test
 ```
 
-301 tests couvrant :
+326 tests couvrant :
 
 - **`rules.test.js`** — déplacements, poussées, symétrie des quatre directions,
   puits, dalles fragiles, glace, tapis roulants, téléporteurs, sas, et

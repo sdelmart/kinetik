@@ -169,6 +169,16 @@ export class App {
     document.body.classList.toggle('no-glow', !this.settings.glow);
     this.background?.setStyle(this.settings.background);
     this.background?.setFpsCap(this.settings.fpsCap);
+
+    // The UI chrome (buttons, logo, focus rings) follows the player's chosen
+    // colour — `--accent-soft` derives from it automatically via color-mix()
+    // in theme.css. Sector colouring during gameplay is handled separately by
+    // the board renderer and is left untouched.
+    document.documentElement.style.setProperty('--accent', this.settings.accentColor);
+
+    // Live-update the background too, but only outside a sector — changing
+    // the theme colour shouldn't retint gameplay while a level is in play.
+    if (!this.route?.params?.worldId) this.background?.setAccent(this.settings.accentColor);
   }
 
   applyAudioSettings() {
@@ -198,9 +208,10 @@ export class App {
     this.host.replaceChildren();
 
     this.route = { name, params };
-    // The background picks up the colour of whichever sector is in play.
+    // The background picks up the colour of whichever sector is in play, and
+    // falls back to the player's chosen theme colour everywhere else.
     const world = params.worldId ? this.findWorld(params.worldId) : null;
-    this.background?.setAccent(world?.accent ?? '#00e5ff');
+    this.background?.setAccent(world?.accent ?? this.settings.accentColor);
 
     this.current = factory(this, params);
     this.host.append(this.current.element);

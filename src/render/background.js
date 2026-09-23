@@ -1,4 +1,5 @@
 import { shouldRenderFrame } from './renderer.js';
+import { hexToRgb } from '../core/color.js';
 /**
  * Animated background layer, drawn procedurally like everything else in the
  * game. Each style has a different cost profile, so the heavy ones render into
@@ -333,10 +334,4 @@ function pointAlong(points, progress) {
     target -= spans[i];
   }
   return points[points.length - 1];
-}
-
-function hexToRgb(hex) {
-  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex ?? '');
-  if (!match) return null;
-  return `${parseInt(match[1], 16)}, ${parseInt(match[2], 16)}, ${parseInt(match[3], 16)}`;
 }

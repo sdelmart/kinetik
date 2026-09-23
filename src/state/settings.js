@@ -2,6 +2,17 @@ import { read, write } from './storage.js';
 import { MUSIC_TRACKS } from '../audio/music.js';
 import { BACKGROUND_IDS } from '../render/background.js';
 import { LANGUAGES } from '../i18n/index.js';
+import { isValidHex } from '../core/color.js';
+
+/** Curated so every combination stays readable against the dark UI. */
+export const ACCENT_PRESETS = [
+  { id: 'cyan', color: '#00e5ff' },
+  { id: 'magenta', color: '#ff2d95' },
+  { id: 'amber', color: '#ffb300' },
+  { id: 'green', color: '#54e08a' },
+  { id: 'violet', color: '#a855f7' },
+  { id: 'red', color: '#ff4d6d' },
+];
 
 export const DEFAULT_SETTINGS = {
   keys: {
@@ -19,6 +30,7 @@ export const DEFAULT_SETTINGS = {
   musicTrack: 'pulse',
   muted: false,
   language: 'fr',
+  accentColor: ACCENT_PRESETS[0].color,
   background: 'grid',
   fpsCap: 60,
   showFps: false,
@@ -56,6 +68,7 @@ export function normalizeSettings(raw) {
       : DEFAULT_SETTINGS.musicTrack,
     muted: Boolean(input.muted),
     language: LANGUAGES.includes(input.language) ? input.language : detectLanguage(),
+    accentColor: isValidHex(input.accentColor) ? input.accentColor : DEFAULT_SETTINGS.accentColor,
     background: BACKGROUND_IDS.includes(input.background)
       ? input.background
       : DEFAULT_SETTINGS.background,

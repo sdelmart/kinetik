@@ -104,7 +104,11 @@
 
 .btn.primary {
   border-color: var(--accent);
-  background: linear-gradient(180deg, rgba(0, 229, 255, 0.22), rgba(0, 229, 255, 0.06));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 22%, transparent),
+    color-mix(in srgb, var(--accent) 6%, transparent)
+  );
   color: #eaffff;
 }
 
@@ -157,7 +161,9 @@
   letter-spacing: 0.28em;
   margin: 0 0 6px;
   color: var(--accent);
-  text-shadow: 0 0 30px rgba(0, 229, 255, 0.45), 0 0 80px rgba(0, 229, 255, 0.15);
+  text-shadow:
+    0 0 30px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 0 80px color-mix(in srgb, var(--accent) 15%, transparent);
   animation: flicker 6s infinite;
 }
 
@@ -749,6 +755,54 @@ input[type='checkbox'] {
   z-index: 80;
   box-shadow: var(--shadow);
   animation: fade-in 0.2s ease;
+}
+
+/* ---------- Theme (accent colour) ---------- */
+
+.accent-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.accent-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--swatch-color);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.accent-swatch:hover {
+  transform: scale(1.12);
+}
+
+.accent-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--swatch-color);
+}
+
+.accent-custom-input {
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.accent-custom-input::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.accent-custom-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
 }
 
 /* ---------- Daily / achievements / statistics ---------- */

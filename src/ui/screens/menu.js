@@ -1,8 +1,9 @@
-import { el, button } from '../components.js';
+import { el, button, confirmDialog } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { formatTime } from '../../core/score.js';
 import { computeStreak, todayKey, DAILY_WORLD_ID } from '../../core/daily.js';
 import { recordsFor } from '../../state/save.js';
+import { isNativeApp, quitApp } from '../platform.js';
 
 export function menuScreen(app) {
   const started = app.save.totals.runs > 0;
@@ -50,6 +51,11 @@ export function menuScreen(app) {
           button(t('achievements'), () => app.go('achievements')),
           button(t('settings'), () => app.go('settings')),
           button(t('credits'), () => app.go('credits')),
+          isNativeApp()
+            ? button(t('quit_game'), async () => {
+                if (await confirmDialog(element, t('quit_game_confirm'))) quitApp();
+              }, { variant: 'ghost danger' })
+            : null,
         ),
         el(
           'div.menu-stats',
