@@ -9,7 +9,6 @@ import {
 } from '../../state/settings.js';
 import { MUSIC_TRACKS, playTrack, stopMusic } from '../../audio/music.js';
 import { BACKGROUNDS } from '../../render/background.js';
-import { resetSave } from '../../state/save.js';
 import { sfx } from '../../audio/sfx.js';
 
 export function settingsScreen(app) {
@@ -193,7 +192,7 @@ export function settingsScreen(app) {
         button(t('profiles'), () => app.go('profiles')),
         button(t('reset_save'), async () => {
           if (!(await confirmDialog(element, t('reset_save_confirm')))) return;
-          app.updateSave(resetSave(app.key('save')));
+          app.resetProgress();
           toast(t('reset_done'));
         }, { variant: 'danger' }),
       ),

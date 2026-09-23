@@ -53,7 +53,7 @@ export function renameProfile(profiles, id, name) {
 
 /** Deleting a profile also drops everything stored under its namespace. */
 export function deleteProfile(profiles, id) {
-  for (const key of ['save', 'settings', 'worlds', 'hints']) {
+  for (const key of ['save', 'settings', 'worlds', 'hints', 'achievements']) {
     remove(profileKey(id, key));
   }
   const next = profiles.filter((p) => p.id !== id);

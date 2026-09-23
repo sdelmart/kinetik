@@ -6,6 +6,7 @@ import {
   loadCustomWorlds,
   persistCustomWorlds,
 } from '../state/save.js';
+import { resetProfileProgress } from '../state/reset.js';
 import {
   loadProfiles,
   resolveActiveProfile,
@@ -149,6 +150,13 @@ export class App {
   updateSave(next) {
     this.save = next;
     persistSave(next, this.key('save'));
+  }
+
+  resetProgress() {
+    const result = resetProfileProgress((name) => this.key(name));
+    this.save = result.save;
+    this.hintTokens = result.hintTokens;
+    this.achievements = result.achievements;
   }
 
   updateCustomWorlds(worlds) {
