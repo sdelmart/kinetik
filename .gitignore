@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-single/
+.DS_Store
+*.local
+
+# Rust / Tauri build output
+src-tauri/target/
+src-tauri/gen/
+downloads/

@@ -1,0 +1,116 @@
+:root {
+  --bg: #0a0e1a;
+  --bg-deep: #060911;
+  --panel: rgba(18, 26, 43, 0.82);
+  --panel-solid: #121a2b;
+  --line: rgba(146, 178, 232, 0.16);
+  --line-strong: rgba(146, 178, 232, 0.34);
+
+  --text: #dbe7ff;
+  --text-dim: #8ea3c8;
+  --text-faint: #5e719a;
+
+  --accent: #00e5ff;
+  --accent-soft: rgba(0, 229, 255, 0.14);
+  --magenta: #ff2d95;
+  --amber: #ffb300;
+  --green: #54e08a;
+  --danger: #ff4d6d;
+
+  --radius: 10px;
+  --radius-lg: 16px;
+  --gap: 14px;
+
+  --font-ui: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The animated background is a canvas behind the whole interface. */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+}
+
+/* Faint CRT overlay; toggled off from the display settings. */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  transition: opacity 0.2s ease;
+}
+
+body.no-scanlines .scanlines {
+  opacity: 0;
+}
+
+body.no-glow {
+  --accent-soft: rgba(0, 229, 255, 0.08);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(146, 178, 232, 0.25);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(146, 178, 232, 0.4);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

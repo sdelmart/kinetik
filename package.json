@@ -1,0 +1,24 @@
+{
+  "name": "kinetik",
+  "version": "1.0.0",
+  "description": "KINETIK - puzzle industriel de tri de conteneurs",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build --config vite.config.single.js",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "tauri": "tauri",
+    "calibrate": "node scripts/calibrate.js",
+    "icon": "node scripts/make-icon.js",
+    "package": "npm run build:single && node scripts/package.js"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "vite": "^6.0.7",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^2.1.8"
+  }
+}
