@@ -106,7 +106,7 @@ export function statisticsScreen(app) {
       'div.row',
       {},
       el('span.label', {}, t('current_streak')),
-      el('b', {}, `🔥 ${computeStreak(dailyRecords)}`),
+      el('b', {}, String(computeStreak(dailyRecords))),
     ),
     el(
       'div.row',
