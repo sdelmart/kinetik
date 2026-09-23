@@ -30,7 +30,7 @@ aucun fichier image ni audio à installer.
 | Commande | Effet |
 |---|---|
 | `npm run dev` | Serveur de développement avec rechargement à chaud |
-| `npm test` | Suite de tests (248 tests) |
+| `npm test` | Suite de tests (301 tests) |
 | `npm run test:watch` | Tests en continu |
 | `npm run calibrate` | Résout les 50 niveaux et affiche le nombre de coups optimal |
 | `npm run calibrate -- --write` | Trie chaque secteur par difficulté et recalcule les références |
@@ -208,13 +208,52 @@ partagés ou sauvegardés à part.
 
 ---
 
+## Défi du jour
+
+Un niveau différent chaque jour, **le même pour tout le monde** : il est choisi
+sans serveur ni aléa, par un simple calcul déterministe sur la date (numéro du
+jour modulo la taille d'un pool de 30 niveaux dédiés, distincts de la
+campagne — voir [`src/core/daily.js`](src/core/daily.js) et
+[`daily.json`](src/core/daily.json)). Rejouer un jour donné retombe toujours
+sur le même niveau.
+
+Le fait de coder la date dans l'identifiant du niveau (`daily-2026-03-08`)
+suffit à obtenir un historique par jour en réutilisant tel quel le système de
+sauvegarde par niveau — aucune structure de données séparée. Une **série**
+(streak 🔥) se calcule à la volée à partir de cet historique : elle continue
+tant qu'aucun jour entier n'est manqué, et ne se réinitialise pas juste parce
+que le défi du jour n'a pas encore été joué aujourd'hui.
+
+---
+
+## Succès
+
+18 succès à débloquer, visibles dans **Succès** (verrouillés en gris) :
+premiers pas, secteur par secteur, campagne complète, paliers d'étoiles
+cumulées, niveaux terminés sans indice, séries quotidiennes (3, 7, 30 jours),
+création d'un niveau dans l'Atelier, score cumulé. Chacun est une simple
+fonction pure évaluée sur l'état de sauvegarde
+([`src/core/achievements.js`](src/core/achievements.js)) — rejouable et
+testée, sans dépendre du moment ni de la façon dont la condition a été remplie.
+
+---
+
+## Statistiques
+
+Un tableau de bord (**Statistiques**) agrège ce qui est déjà suivi ailleurs :
+score et temps de jeu cumulés, progression par secteur, série quotidienne en
+cours et record, niveau le plus rejoué, niveau le plus difficile (le moins
+bien étoilé), et nombre de succès débloqués.
+
+---
+
 ## Tests
 
 ```bash
 npm test
 ```
 
-248 tests couvrant :
+301 tests couvrant :
 
 - **`rules.test.js`** — déplacements, poussées, symétrie des quatre directions,
   puits, dalles fragiles, glace, tapis roulants, téléporteurs, sas, et
@@ -225,14 +264,20 @@ npm test
 - **`campaign.test.js`** — chaque niveau livré est valide, solvable, n'est pas
   déjà résolu au départ, son `par` est atteignable, et **chaque secteur est
   bien ordonné du plus facile au plus difficile**.
+- **`daily.test.js`** — sélection déterministe du niveau du jour, intégrité et
+  solvabilité des 30 niveaux du pool, et calcul des séries (continuité,
+  rupture après un jour manqué, série la plus longue).
+- **`achievements.test.js`** — chaque succès se déclenche à son seuil exact,
+  jamais avant, jamais deux fois, et les identifiants inconnus issus d'une
+  sauvegarde corrompue sont ignorés sans planter.
 - **`hints.test.js`** — conditions de déverrouillage, justesse du coup suggéré
   après que le joueur se soit égaré, détection des positions sans issue, et
   impossibilité de farmer des jetons en rejouant un niveau.
 - **`pacing.test.js`** — la limite d'images ne saute pas de frame à tort et ne
   divise pas par deux un écran 60 Hz.
 - **`i18n.test.js`** — les 4 langues ont exactement le même jeu de clés, sans
-  chaîne vide, et tous les codes d'erreur, pistes musicales et fonds sont
-  traduits partout.
+  chaîne vide, et tous les codes d'erreur, pistes musicales, fonds et succès
+  sont traduits partout.
 
 ---
 

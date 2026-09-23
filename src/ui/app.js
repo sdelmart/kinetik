@@ -13,6 +13,9 @@ import {
   profileKey,
 } from '../state/profiles.js';
 import { STARTING_TOKENS } from '../core/hints.js';
+import { dailyWorld, DAILY_WORLD_ID } from '../core/daily.js';
+import { buildContext, evaluateAchievements } from '../core/achievements.js';
+import { loadUnlockedAchievements, persistUnlockedAchievements } from '../state/achievements.js';
 import { read, write } from '../state/storage.js';
 import { setLanguage, t } from '../i18n/index.js';
 import { setMusicVolume, setSfxVolume, setMuted, unlock } from '../audio/engine.js';
@@ -27,6 +30,8 @@ import { gameScreen } from './screens/game.js';
 import { settingsScreen } from './screens/settings.js';
 import { editorScreen } from './screens/editor.js';
 import { creditsScreen } from './screens/credits.js';
+import { achievementsScreen } from './screens/achievements.js';
+import { statisticsScreen } from './screens/statistics.js';
 
 const SCREENS = {
   profiles: profilesScreen,
@@ -37,6 +42,8 @@ const SCREENS = {
   settings: settingsScreen,
   editor: editorScreen,
   credits: creditsScreen,
+  achievements: achievementsScreen,
+  statistics: statisticsScreen,
 };
 
 /**
@@ -77,6 +84,7 @@ export class App {
     this.save = loadSave(this.key('save'));
     this.customWorlds = loadCustomWorlds(this.key('worlds'));
     this.hintTokens = this.readHintTokens();
+    this.achievements = loadUnlockedAchievements(this.key('achievements'));
 
     setLanguage(this.settings.language);
     this.applyDisplaySettings();
@@ -105,11 +113,28 @@ export class App {
   }
 
   worldTitle(world) {
+    if (world.daily) return t('daily_challenge');
     return world.builtin ? t(`world.${world.id}`) : world.name;
   }
 
+  /** The daily challenge is generated on the fly, so it isn't in `worlds`. */
   findWorld(id) {
+    if (id === DAILY_WORLD_ID) return dailyWorld();
     return this.worlds.find((w) => w.id === id) ?? null;
+  }
+
+  /**
+   * Re-evaluates every achievement against current save data. Call after any
+   * event that could unlock one (a win, importing a level, etc.) — cheap and
+   * idempotent, so there's no need to track which event might matter.
+   */
+  checkAchievements() {
+    const { unlocked, newly } = evaluateAchievements(buildContext(this), this.achievements);
+    if (newly.length) {
+      this.achievements = unlocked;
+      persistUnlockedAchievements(unlocked, this.key('achievements'));
+    }
+    return newly;
   }
 
   // --- persistence ---

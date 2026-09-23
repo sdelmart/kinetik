@@ -15,6 +15,8 @@ import {
   TOKENS_PER_WORLD,
 } from '../../core/hints.js';
 import { toast } from '../components.js';
+import { computeStreak, DAILY_WORLD_ID } from '../../core/daily.js';
+import { recordsFor } from '../../state/save.js';
 
 export function gameScreen(app, { worldId, levelIndex }) {
   const world = app.findWorld(worldId);
@@ -25,12 +27,14 @@ export function gameScreen(app, { worldId, levelIndex }) {
   }
 
   const accent = world.accent ?? '#00e5ff';
+  const isDaily = Boolean(world.daily);
   const history = new History();
   let state = createState(level);
   let startedAt = performance.now();
   let elapsed = 0;
   let finished = false;
   let timerId = null;
+  let hintUsedThisRun = false;
 
   const canvas = el('canvas');
   const boardHost = el('div.board-host', {}, canvas);
@@ -143,6 +147,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
       }
 
       app.setHintTokens(app.hintTokens - 1);
+      hintUsedThisRun = true;
       renderer.showHint(result.direction);
       sfx.teleport();
       toast(t('hint_shown', { moves: result.remaining }));
@@ -208,6 +213,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
 
   function restart() {
     finished = false;
+    hintUsedThisRun = false;
     history.clear();
     state = createState(level);
     elapsed = 0;
@@ -223,9 +229,11 @@ export function gameScreen(app, { worldId, levelIndex }) {
     timerId = null;
   }
 
+  // The daily challenge is a single generated level, not part of any list.
   function leave() {
     stopTimer();
-    app.go('levels', { worldId: world.id });
+    if (isDaily) app.go('menu');
+    else app.go('levels', { worldId: world.id });
   }
 
   function win() {
@@ -246,20 +254,25 @@ export function gameScreen(app, { worldId, levelIndex }) {
         seconds,
         score,
         stars: starCount,
+        usedHint: hintUsedThisRun,
       }),
     );
 
     // Tokens are earned by clearing a level cleanly, plus a bonus per sector.
     const earned =
       awardForLevel({ stars: starCount, firstCompletion: !previous?.completed }) +
-      (levelIndex === world.levels.length - 1 && !previous?.completed ? TOKENS_PER_WORLD : 0);
+      (!isDaily && levelIndex === world.levels.length - 1 && !previous?.completed
+        ? TOKENS_PER_WORLD
+        : 0);
     if (earned > 0) app.setHintTokens(app.hintTokens + earned);
 
-    const isLast = levelIndex === world.levels.length - 1;
+    const newlyUnlocked = app.checkAchievements();
+
+    const isLast = isDaily || levelIndex === world.levels.length - 1;
     isLast ? sfx.worldWin() : sfx.win();
 
     const actions = el('div.panel-actions');
-    if (!isLast) {
+    if (!isDaily && !isLast) {
       actions.append(
         button(t('next_level'), () => app.go('game', { worldId: world.id, levelIndex: levelIndex + 1 }), {
           variant: 'primary',
@@ -267,7 +280,11 @@ export function gameScreen(app, { worldId, levelIndex }) {
       );
     }
     actions.append(button(t('retry'), () => restart()));
-    actions.append(button(t('back_to_levels'), () => leave(), { variant: 'ghost' }));
+    actions.append(
+      button(isDaily ? t('back') : t('back_to_levels'), () => leave(), { variant: 'ghost' }),
+    );
+
+    const streak = isDaily ? computeStreak(recordsFor(app.save, DAILY_WORLD_ID)) : 0;
 
     element.append(
       el(
@@ -276,9 +293,10 @@ export function gameScreen(app, { worldId, levelIndex }) {
         el(
           'div.panel',
           {},
-          el('h2', {}, isLast ? t('world_complete') : t('level_complete')),
+          el('h2', {}, isDaily ? t('daily_complete') : isLast ? t('world_complete') : t('level_complete')),
           improved ? el('div.badge', {}, t('new_record')) : null,
           earned > 0 ? el('div.badge.tokens', {}, t('hint_earned', { count: earned })) : null,
+          isDaily ? el('div.badge.streak', {}, `🔥 ${t('daily_streak_count', { count: streak })}`) : null,
           el('div.big-stars', {}, stars(starCount)),
           el('div.score', {}, String(score)),
           el(
@@ -286,6 +304,16 @@ export function gameScreen(app, { worldId, levelIndex }) {
             {},
             `${state.moves} ${t('moves').toLowerCase()} · ${state.pushes} ${t('pushes').toLowerCase()} · ${formatTime(seconds)}`,
           ),
+          newlyUnlocked.length
+            ? el(
+                'div.unlocked-list',
+                {},
+                el('div.section-title', { style: { margin: '14px 0 8px' } }, t('achievement_unlocked')),
+                ...newlyUnlocked.map((id) =>
+                  el('div.unlocked-item', {}, `🏆 ${t(`achievement.${id}.name`)}`),
+                ),
+              )
+            : null,
           actions,
         ),
       ),

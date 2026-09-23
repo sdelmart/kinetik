@@ -751,6 +751,87 @@ input[type='checkbox'] {
   animation: fade-in 0.2s ease;
 }
 
+/* ---------- Daily / achievements / statistics ---------- */
+
+.badge-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: rgba(84, 224, 138, 0.18);
+  color: var(--green);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+
+.badge-inline.streak {
+  background: rgba(255, 179, 0, 0.18);
+  color: var(--amber);
+}
+
+.badge.streak {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.achievement-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.achievement-card {
+  cursor: default;
+  text-align: center;
+}
+
+.achievement-card.locked {
+  opacity: 0.45;
+}
+
+.achievement-card.unlocked {
+  border-color: var(--amber);
+  box-shadow: 0 0 22px rgba(255, 179, 0, 0.16);
+}
+
+.achievement-icon {
+  font-size: 1.8rem;
+  margin-bottom: 6px;
+}
+
+.unlocked-list {
+  text-align: left;
+  background: rgba(255, 179, 0, 0.08);
+  border: 1px solid rgba(255, 179, 0, 0.3);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 4px 0 18px;
+}
+
+.unlocked-item {
+  font-size: 0.85rem;
+  padding: 3px 0;
+}
+
+.stat-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  margin-bottom: 20px;
+}
+
+.stat-tile {
+  text-align: center;
+  cursor: default;
+}
+
+.stat-tile-value {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 760px) {
   .editor {
     grid-template-columns: 1fr;

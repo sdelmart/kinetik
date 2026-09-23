@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "calibrate": "node scripts/calibrate.js",
     "icon": "node scripts/make-icon.js",
-    "package": "npm run build:single && node scripts/package.js"
+    "package": "npm run build:single && node scripts/package.js",
+    "calibrate:daily": "node scripts/calibrate-daily.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.5",

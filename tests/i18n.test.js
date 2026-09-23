@@ -42,6 +42,16 @@ describe('translations', () => {
     }
   });
 
+  it('names and describes every achievement in every language', async () => {
+    const { ACHIEVEMENTS } = await import('../src/core/achievements.js');
+    for (const lang of LANGUAGES) {
+      for (const achievement of ACHIEVEMENTS) {
+        expect(CATALOGS[lang][`achievement.${achievement.id}.name`], `${lang}/${achievement.id}`).toBeTruthy();
+        expect(CATALOGS[lang][`achievement.${achievement.id}.desc`], `${lang}/${achievement.id}`).toBeTruthy();
+      }
+    }
+  });
+
   it('covers every level validation error code', () => {
     const codes = [
       'invalid_shape', 'invalid_format', 'layer_mismatch', 'too_small', 'too_large',

@@ -1,7 +1,10 @@
 import { read, write, remove } from './storage.js';
 import { validateLevel } from '../core/level.js';
 
-const EMPTY = { records: {}, totals: { moves: 0, pushes: 0, seconds: 0, score: 0, runs: 0 } };
+const EMPTY = {
+  records: {},
+  totals: { moves: 0, pushes: 0, seconds: 0, score: 0, runs: 0, hintFreeClears: 0 },
+};
 
 export function loadSave(key = 'save') {
   const raw = read(key, null);
@@ -27,10 +30,16 @@ export function levelRecord(save, worldId, levelId) {
 /**
  * Stores a finished run. Bests only ever improve; lifetime totals always
  * accumulate, so restarting a level never erases what the player has done.
+ * `usedHint` only affects the `hintFreeClears` counter, and only on a level's
+ * very first clear — replaying it hint-free afterwards can't be farmed.
  */
-export function commitRun(save, { worldId, levelId, moves, pushes, seconds, score, stars }) {
+export function commitRun(
+  save,
+  { worldId, levelId, moves, pushes, seconds, score, stars, usedHint = false },
+) {
   const world = { ...(save.records[worldId] ?? {}) };
   const previous = world[levelId] ?? {};
+  const firstClear = !previous.completed;
 
   world[levelId] = {
     completed: true,
@@ -38,6 +47,7 @@ export function commitRun(save, { worldId, levelId, moves, pushes, seconds, scor
     bestStars: Math.max(previous.bestStars ?? 0, stars),
     bestMoves: previous.bestMoves ? Math.min(previous.bestMoves, moves) : moves,
     bestTime: previous.bestTime ? Math.min(previous.bestTime, seconds) : seconds,
+    playCount: (previous.playCount ?? 0) + 1,
     playedAt: Date.now(),
   };
 
@@ -49,6 +59,7 @@ export function commitRun(save, { worldId, levelId, moves, pushes, seconds, scor
       seconds: save.totals.seconds + seconds,
       score: save.totals.score + score,
       runs: save.totals.runs + 1,
+      hintFreeClears: save.totals.hintFreeClears + (firstClear && !usedHint ? 1 : 0),
     },
   };
 }

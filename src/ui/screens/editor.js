@@ -362,6 +362,9 @@ export function editorScreen(app) {
     commitLevel();
     sfx.click();
     toast(t('save_level'));
+    for (const id of app.checkAchievements()) {
+      toast(`🏆 ${t(`achievement.${id}.name`)}`);
+    }
   }, { variant: 'primary' });
 
   const testBtn = button(t('test_level'), () => {
