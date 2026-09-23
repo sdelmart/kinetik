@@ -29,7 +29,7 @@
   "bundle": {
     "active": true,
     "targets": ["deb", "appimage", "msi", "nsis", "app", "dmg"],
-    "icon": ["icons/icon.png"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
     "category": "Game",
     "shortDescription": "Puzzle industriel de tri de conteneurs",
     "longDescription": "KINETIK — poussez les conteneurs sur les plaques de charge à travers cinq secteurs, avec éditeur de niveaux intégré."
