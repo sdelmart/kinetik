@@ -9,10 +9,15 @@ import { computeStreak, computeLongestStreak, totalDailyClears, DAILY_WORLD_ID }
 const TOTAL_LEVELS = BUILTIN_WORLDS.reduce((n, w) => n + w.levels.length, 0);
 const TOTAL_STARS = TOTAL_LEVELS * 3;
 
-/** Finds the level record with the most replays, and the weakest clear. */
-function findNotable(save) {
+/**
+ * Finds the level record with the most replays, the weakest clear, and the
+ * fastest one relative to its own par — a raw best time isn't comparable
+ * across levels of very different sizes, but time-per-par-move roughly is.
+ */
+export function findNotable(save) {
   let mostReplayed = null;
   let toughest = null;
+  let fastest = null;
 
   for (const world of BUILTIN_WORLDS) {
     const records = recordsFor(save, world.id);
@@ -27,9 +32,14 @@ function findNotable(save) {
       if (!toughest || (record.bestStars ?? 3) < (toughest.record.bestStars ?? 3)) {
         toughest = entry;
       }
+      if (record.bestTime != null) {
+        const pace = record.bestTime / level.par;
+        const fastestPace = fastest ? fastest.record.bestTime / fastest.level.par : Infinity;
+        if (pace < fastestPace) fastest = entry;
+      }
     });
   }
-  return { mostReplayed, toughest };
+  return { mostReplayed, toughest, fastest };
 }
 
 function levelLabel(entry) {
@@ -38,7 +48,7 @@ function levelLabel(entry) {
 
 export function statisticsScreen(app) {
   const { save } = app;
-  const { mostReplayed, toughest } = findNotable(save);
+  const { mostReplayed, toughest, fastest } = findNotable(save);
   const dailyRecords = recordsFor(save, DAILY_WORLD_ID);
 
   let levelsCompleted = 0;
@@ -147,6 +157,18 @@ export function statisticsScreen(app) {
             'b',
             {},
             `${app.worldTitle(toughest.world)} · ${levelLabel(toughest)}`,
+          ),
+        )
+      : null,
+    fastest
+      ? el(
+          'div.row',
+          {},
+          el('span.label', {}, t('fastest_level')),
+          el(
+            'b',
+            {},
+            `${app.worldTitle(fastest.world)} · ${levelLabel(fastest)} (${formatTime(fastest.record.bestTime)})`,
           ),
         )
       : null,

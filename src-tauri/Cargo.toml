@@ -1,6 +1,6 @@
 [package]
 name = "kinetik"
-version = "1.1.0"
+version = "1.2.0"
 description = "KINETIK - puzzle industriel de tri de conteneurs"
 edition = "2021"
 rust-version = "1.77"

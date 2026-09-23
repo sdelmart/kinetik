@@ -22,6 +22,27 @@ export const PALETTE = {
   magenta: '#ff2d95',
 };
 
+/**
+ * Green is used for every "good/open/delivered" state (a lit container, a
+ * pressed switch, an open gate) and red for the opposite — the single most
+ * common colour pair confused by red-green colour blindness. In colourblind
+ * mode those states switch to blue, which no form of dichromacy confuses
+ * with either red or amber, so the distinction survives regardless of the
+ * player's exact colour vision.
+ */
+const POSITIVE_NORMAL = '#54e08a';
+const POSITIVE_COLORBLIND = '#4aa3ff';
+const POSITIVE_LIT_BODY_NORMAL = '#2f4a33';
+const POSITIVE_LIT_BODY_COLORBLIND = '#1c3350';
+
+export function positiveColor(colorblind) {
+  return colorblind ? POSITIVE_COLORBLIND : POSITIVE_NORMAL;
+}
+
+function positiveLitBody(colorblind) {
+  return colorblind ? POSITIVE_LIT_BODY_COLORBLIND : POSITIVE_LIT_BODY_NORMAL;
+}
+
 function glowStroke(ctx, color, blur, enabled) {
   ctx.strokeStyle = color;
   ctx.shadowColor = enabled ? color : 'transparent';
@@ -182,7 +203,7 @@ export function drawTile(ctx, tile, x, y, size, theme) {
     case T.SWITCH: {
       drawPlainFloor(ctx, x, y, size);
       const pressed = theme.switchPressed;
-      const color = pressed ? '#54e08a' : PALETTE.amber;
+      const color = pressed ? positiveColor(theme.colorblind) : PALETTE.amber;
       ctx.lineWidth = Math.max(1.5, size * 0.045);
       glowStroke(ctx, color, size * (pressed ? 0.22 : 0.1), glow);
       roundRect(ctx, x + size * 0.24, y + size * 0.24, size * 0.52, size * 0.52, size * 0.12);
@@ -200,7 +221,7 @@ export function drawTile(ctx, tile, x, y, size, theme) {
     case T.GATE: {
       const open = theme.gateOpen;
       drawPlainFloor(ctx, x, y, size);
-      const color = open ? '#54e08a' : PALETTE.danger;
+      const color = open ? positiveColor(theme.colorblind) : PALETTE.danger;
       ctx.lineWidth = Math.max(1.5, size * 0.05);
       glowStroke(ctx, color, size * 0.16, glow);
       const inset = open ? size * 0.38 : size * 0.1;
@@ -263,11 +284,12 @@ function drawConveyor(ctx, tile, x, y, size, theme) {
   ctx.restore();
 }
 
-export function drawCrate(ctx, x, y, size, { lit, glow, accent }) {
+export function drawCrate(ctx, x, y, size, { lit, glow, accent, colorblind }) {
   const pad = size * 0.11;
   const w = size - pad * 2;
-  const body = lit ? PALETTE.crateLit : PALETTE.crate;
-  const edge = lit ? PALETTE.crateLitEdge : PALETTE.crateEdge;
+  const litEdge = positiveColor(colorblind);
+  const body = lit ? positiveLitBody(colorblind) : PALETTE.crate;
+  const edge = lit ? litEdge : PALETTE.crateEdge;
 
   ctx.fillStyle = body;
   roundRect(ctx, x + pad, y + pad, w, w, size * 0.1);
@@ -279,7 +301,7 @@ export function drawCrate(ctx, x, y, size, { lit, glow, accent }) {
   clearGlow(ctx);
 
   // corrugation
-  ctx.strokeStyle = lit ? 'rgba(84,224,138,0.35)' : 'rgba(201,139,60,0.3)';
+  ctx.strokeStyle = lit ? `${litEdge}59` : 'rgba(201,139,60,0.3)';
   ctx.lineWidth = Math.max(1, size * 0.022);
   for (let i = 1; i <= 2; i++) {
     const cx = x + pad + (w / 3) * i;
@@ -290,10 +312,24 @@ export function drawCrate(ctx, x, y, size, { lit, glow, accent }) {
   }
 
   // status light
-  ctx.fillStyle = lit ? PALETTE.crateLitEdge : accent;
+  ctx.fillStyle = lit ? litEdge : accent;
   ctx.beginPath();
   ctx.arc(x + size / 2, y + pad + size * 0.12, size * 0.045, 0, Math.PI * 2);
   ctx.fill();
+
+  // an extra, colour-independent cue: a checkmark once delivered, so the
+  // distinction never relies on the edge colour alone.
+  if (lit && colorblind) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = Math.max(1.5, size * 0.05);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.38, y + size * 0.56);
+    ctx.lineTo(x + size * 0.47, y + size * 0.66);
+    ctx.lineTo(x + size * 0.64, y + size * 0.42);
+    ctx.stroke();
+  }
 }
 
 export function drawDrone(ctx, x, y, size, { facing, glow, accent, time }) {

@@ -30,7 +30,7 @@ export class BoardRenderer {
     this.motionStart = 0;
     this.motions = [];
     this.particles = [];
-    this.options = { accent: '#00e5ff', glow: true, showGrid: true, fpsCap: 60 };
+    this.options = { accent: '#00e5ff', glow: true, showGrid: true, fpsCap: 60, colorblind: false };
     this.geometry = { tile: 32, originX: 0, originY: 0 };
     this.running = false;
     this.shake = 0;
@@ -277,6 +277,7 @@ export class BoardRenderer {
     const theme = {
       accent: this.options.accent,
       glow: this.options.glow,
+      colorblind: this.options.colorblind,
       time,
       gateOpen: open,
     };
@@ -315,6 +316,7 @@ export class BoardRenderer {
         lit: state.terrain[index] === T.TARGET,
         glow: this.options.glow,
         accent: this.options.accent,
+        colorblind: this.options.colorblind,
       });
     }
 

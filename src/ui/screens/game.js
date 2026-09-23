@@ -17,6 +17,7 @@ import {
 import { toast } from '../components.js';
 import { computeStreak, DAILY_WORLD_ID } from '../../core/daily.js';
 import { recordsFor } from '../../state/save.js';
+import { GamepadWatcher } from '../gamepad.js';
 
 export function gameScreen(app, { worldId, levelIndex }) {
   const world = app.findWorld(worldId);
@@ -48,6 +49,11 @@ export function gameScreen(app, { worldId, levelIndex }) {
 
   const record = levelRecord(app.save, world.id, level.id);
   const fpsStat = stat('FPS', '0');
+  // A live delta against your own best time, so a level you've already
+  // cleared plays like a genuine time-attack race against yourself, without
+  // needing a separate mode to switch into.
+  const bestTimeStat =
+    !isDaily && record?.bestTime ? stat(`⏱ ${t('vs_best')}`, formatDelta(0)) : null;
   const hud = el(
     'div.hud',
     {},
@@ -56,8 +62,21 @@ export function gameScreen(app, { worldId, levelIndex }) {
     timeStat,
     parStat,
     record ? stat(t('best'), String(record.bestScore)) : null,
+    bestTimeStat,
     app.settings.showFps ? fpsStat : null,
   );
+
+  function formatDelta(deltaSeconds) {
+    const sign = deltaSeconds <= 0 ? '−' : '+';
+    return `${sign}${formatTime(Math.abs(deltaSeconds))}`;
+  }
+
+  function refreshBestTimeDelta() {
+    if (!bestTimeStat) return;
+    const delta = elapsed / 1000 - record.bestTime;
+    bestTimeStat.querySelector('b').textContent = formatDelta(delta);
+    bestTimeStat.classList.toggle('over', delta > 0);
+  }
 
   const undoBtn = button(`↶ ${t('undo')}`, () => undo(), { variant: 'icon' });
   const redoBtn = button(`↷ ${t('redo')}`, () => redo(), { variant: 'icon' });
@@ -96,6 +115,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
     glow: app.settings.glow,
     showGrid: app.settings.showGrid,
     fpsCap: app.settings.fpsCap,
+    colorblind: app.settings.colorblindMode,
   });
 
   function refreshHint() {
@@ -168,6 +188,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
     if (stuck) warning.replaceChildren(t('deadlock'), el('br'), el('small', {}, t('deadlock_hint')));
 
     if (app.settings.showFps) fpsStat.querySelector('b').textContent = String(renderer.fps);
+    refreshBestTimeDelta();
     refreshHint();
   }
 
@@ -320,12 +341,8 @@ export function gameScreen(app, { worldId, levelIndex }) {
     );
   }
 
-  function onKeyDown(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    const action = actionForKey(app.settings, event);
-    if (!action) return;
-    event.preventDefault();
-
+  // Shared by keyboard and gamepad input, so both stay perfectly in sync.
+  function dispatchAction(action) {
     if (action === 'back') return leave();
     if (finished) return;
     if (action === 'undo') return undo();
@@ -333,6 +350,25 @@ export function gameScreen(app, { worldId, levelIndex }) {
     if (action === 'restart') return restart();
     move(action);
   }
+
+  function onKeyDown(event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const action = actionForKey(app.settings, event);
+    if (!action) return;
+    event.preventDefault();
+    dispatchAction(action);
+  }
+
+  const gamepad = new GamepadWatcher({
+    up: () => dispatchAction('up'),
+    down: () => dispatchAction('down'),
+    left: () => dispatchAction('left'),
+    right: () => dispatchAction('right'),
+    undo: () => dispatchAction('undo'),
+    redo: () => dispatchAction('redo'),
+    restart: () => dispatchAction('restart'),
+    back: () => dispatchAction('back'),
+  });
 
   // Touch: a swipe of at least 26px picks the dominant axis.
   let touchStart = null;
@@ -363,16 +399,19 @@ export function gameScreen(app, { worldId, levelIndex }) {
         elapsed = performance.now() - startedAt;
         timeStat.querySelector('b').textContent = formatTime(elapsed / 1000);
         if (app.settings.showFps) fpsStat.querySelector('b').textContent = String(renderer.fps);
+        refreshBestTimeDelta();
         refreshHint();
       }, 250);
 
       window.addEventListener('keydown', onKeyDown);
       boardHost.addEventListener('touchstart', onTouchStart, { passive: true });
       boardHost.addEventListener('touchend', onTouchEnd, { passive: true });
+      gamepad.start();
     },
     unmount() {
       stopTimer();
       renderer.destroy();
+      gamepad.stop();
       window.removeEventListener('keydown', onKeyDown);
       boardHost.removeEventListener('touchstart', onTouchStart);
       boardHost.removeEventListener('touchend', onTouchEnd);

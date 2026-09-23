@@ -9,6 +9,7 @@ import {
   randomId,
 } from '../../core/level.js';
 import { createState } from '../../core/state.js';
+import { encodeLevel, decodeLevel } from '../../core/levelCode.js';
 import { BoardRenderer } from '../../render/renderer.js';
 import { drawTile, drawCrate, drawDrone } from '../../render/sprites.js';
 import { sfx } from '../../audio/sfx.js';
@@ -52,7 +53,12 @@ export function editorScreen(app) {
   const canvas = el('canvas');
   const boardHost = el('div.board-host', {}, canvas);
   const renderer = new BoardRenderer(canvas);
-  renderer.configure({ accent: '#00e5ff', glow: app.settings.glow, showGrid: true });
+  renderer.configure({
+    accent: '#00e5ff',
+    glow: app.settings.glow,
+    showGrid: true,
+    colorblind: app.settings.colorblindMode,
+  });
 
   const side = el('div.editor-side');
   const status = el('div.status');
@@ -293,6 +299,50 @@ export function editorScreen(app) {
     refreshBoard();
   }
 
+  // --- level sharing (compact text code) ---------------------------------
+
+  /**
+   * A one-level equivalent of exportWorld/importWorld: a short text code
+   * instead of a JSON file, small enough to paste into a chat message —
+   * see core/levelCode.js for the format.
+   */
+  async function copyLevelCode() {
+    if (!currentLevel()) return;
+    commitLevel();
+    const code = encodeLevel(currentLevel());
+    try {
+      await navigator.clipboard.writeText(code);
+      toast(t('code_copied'));
+    } catch {
+      // Clipboard access can be denied (permissions, insecure context); show
+      // the code so it can still be selected and copied by hand.
+      await promptDialog(element, t('level_code'), code);
+    }
+  }
+
+  async function pasteLevelCode() {
+    const code = await promptDialog(element, t('paste_code_prompt'), '');
+    if (!code) return;
+
+    const result = decodeLevel(code);
+    if (!result.ok) {
+      sfx.error();
+      toast(result.reason === 'invalid_code' ? t('code_invalid') : t(`error.${result.reason}`));
+      return;
+    }
+
+    if (!world) await createWorld();
+    if (!world) return; // user cancelled the sector-name prompt
+
+    result.level.name = `${t('level')} ${world.levels.length + 1}`;
+    world.levels.push(result.level);
+    levelIndex = world.levels.length - 1;
+    persist();
+    loadLevelIntoGrids();
+    render();
+    toast(t('code_imported'));
+  }
+
   // --- import / export --------------------------------------------------
 
   function exportWorld() {
@@ -374,7 +424,14 @@ export function editorScreen(app) {
 
   function toolSwatch(id, kind, value) {
     return tileSwatch((ctx, size) => {
-      const theme = { accent: '#00e5ff', glow: false, time: 500, gateOpen: false, switchPressed: false };
+      const theme = {
+        accent: '#00e5ff',
+        glow: false,
+        colorblind: app.settings.colorblindMode,
+        time: 500,
+        gateOpen: false,
+        switchPressed: false,
+      };
       if (kind === 'entity') {
         drawTile(ctx, T.FLOOR, 0, 0, size, theme);
         if (value === E.PLAYER) {
@@ -433,6 +490,13 @@ export function editorScreen(app) {
 
     if (!world) {
       side.append(el('div.empty', { style: { marginTop: '16px' } }, t('no_custom_worlds')));
+      side.append(
+        el(
+          'div',
+          { style: { marginTop: '8px' } },
+          button(t('paste_code'), pasteLevelCode, { variant: 'icon ghost' }),
+        ),
+      );
       return;
     }
 
@@ -469,6 +533,14 @@ export function editorScreen(app) {
         button(`+ ${t('new_level')}`, addLevel, { variant: 'icon' }),
         currentLevel() ? button(t('rename'), () => renameCurrent('level'), { variant: 'icon ghost' }) : null,
         currentLevel() ? button(t('delete'), deleteLevel, { variant: 'icon ghost danger' }) : null,
+      ),
+    );
+    side.append(
+      el(
+        'div',
+        { style: { display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' } },
+        currentLevel() ? button(t('copy_code'), copyLevelCode, { variant: 'icon ghost' }) : null,
+        button(t('paste_code'), pasteLevelCode, { variant: 'icon ghost' }),
       ),
     );
 

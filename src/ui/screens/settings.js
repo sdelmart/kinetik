@@ -219,6 +219,10 @@ export function settingsScreen(app) {
       row(t('background'), backgroundSelect),
       row(t('fps_cap'), fpsSelect),
       row(t('show_fps'), toggle(app.settings.showFps, (v) => app.updateSettings({ showFps: v }))),
+      row(
+        t('colorblind_mode'),
+        toggle(app.settings.colorblindMode, (v) => app.updateSettings({ colorblindMode: v })),
+      ),
       row(t('glow'), toggle(app.settings.glow, (v) => app.updateSettings({ glow: v }))),
       row(t('scanlines'), toggle(app.settings.scanlines, (v) => app.updateSettings({ scanlines: v }))),
       row(t('show_grid'), toggle(app.settings.showGrid, (v) => app.updateSettings({ showGrid: v }))),

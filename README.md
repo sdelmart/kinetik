@@ -30,7 +30,7 @@ aucun fichier image ni audio à installer.
 | Commande | Effet |
 |---|---|
 | `npm run dev` | Serveur de développement avec rechargement à chaud |
-| `npm test` | Suite de tests (326 tests) |
+| `npm test` | Suite de tests (356 tests) |
 | `npm run test:watch` | Tests en continu |
 | `npm run calibrate` | Résout les 50 niveaux et affiche le nombre de coups optimal |
 | `npm run calibrate -- --write` | Trie chaque secteur par difficulté et recalcule les références |
@@ -177,7 +177,8 @@ Tout est dans **Réglages**, et persiste entre deux sessions :
   *Silence*, volumes musique et effets séparés, coupure rapide du son.
 - **Affichage** — langue (4), **couleur d'interface**, **fond animé** (5
   ambiances), **limite d'images par seconde** (30 / 60 / 120 / illimité) avec
-  compteur FPS optionnel, halo néon, lignes de balayage, grille du plateau.
+  compteur FPS optionnel, **mode daltonien**, halo néon, lignes de balayage,
+  grille du plateau.
 
 La limite d'images s'applique au plateau **et** au fond animé : à 30 FPS sur un
 portable, le jeu consomme nettement moins de batterie ; en « illimité » il suit
@@ -198,6 +199,26 @@ c'est la couleur du secteur qui identifie où vous êtes.
 dans l'application native (le `.exe`/`.dmg`/`.AppImage`) : fermer un onglet de
 navigateur par script est bloqué par la plupart des navigateurs, le bouton
 n'y serait donc jamais qu'un bouton mort.
+
+**Mode daltonien** — le vert et le rouge sont la paire de couleurs la plus
+souvent confondue en cas de daltonisme, et le jeu s'en sert par défaut pour
+« ouvert/livré/activé » contre « fermé/en attente » (sas, interrupteur,
+conteneur livré). En mode daltonien, ces états basculent vers le bleu — jamais
+confondu avec le rouge ni l'ambre, quel que soit le type de daltonisme — et un
+conteneur livré affiche en plus une coche, pour ne jamais dépendre de la seule
+couleur.
+
+**Contre-la-montre** — dès qu'un niveau a déjà été terminé une fois, l'écran de
+jeu affiche en direct l'écart avec votre meilleur temps sur ce niveau
+(`⏱ vs record`), qui passe en ambre dès que vous êtes plus lent que votre
+record. Statistiques indique aussi le niveau le plus rapide, calculé par
+rapport à la référence de coups (un temps brut n'est pas comparable entre un
+petit et un grand niveau, mais le temps par coup de référence l'est).
+
+**Manette** — branchez n'importe quel contrôleur standard : croix directionnelle
+ou stick gauche pour se déplacer, gâchette gauche/droite pour annuler/rétablir,
+bouton secondaire (B/Cercle) pour recommencer, Start pour revenir en arrière.
+Fonctionne dès qu'un niveau est ouvert, sans réglage préalable.
 
 ---
 
@@ -264,7 +285,7 @@ bien étoilé), et nombre de succès débloqués.
 npm test
 ```
 
-326 tests couvrant :
+356 tests couvrant :
 
 - **`rules.test.js`** — déplacements, poussées, symétrie des quatre directions,
   puits, dalles fragiles, glace, tapis roulants, téléporteurs, sas, et
@@ -334,6 +355,27 @@ Terrain : `#` cloison · `.` sol · `*` plaque · `o` puits · `~` dalle fragile
 Les secteurs créés dans l'Atelier s'exportent et s'importent dans ce format.
 Un fichier importé n'est chargé que si **tous** ses niveaux passent la
 validation.
+
+### Partager un niveau par code
+
+En plus de l'export JSON (un secteur entier, en fichier), l'Atelier propose
+**Copier le code** / **Coller un code** pour partager **un seul niveau** sous
+forme de texte court, collable dans un message :
+
+```
+K1.c.9.7.AAAAAAAAAAAA...
+```
+
+Chaque case du plateau tient sur **un seul caractère** : les 16 types de
+terrain et les 3 entités possibles (rien / drone / conteneur) se combinent en
+un indice de 0 à 47, qui pointe directement dans un alphabet de 64 symboles
+(`A`-`Z`, `a`-`z`, `0`-`9`, `-`, `_`) — sans caractère à échapper dans une URL
+ou un message. Un niveau de taille courante tient dans une grosse centaine de
+caractères. Voir [`src/core/levelCode.js`](src/core/levelCode.js).
+
+Un code collé est décodé, revalidé avec les mêmes règles qu'un import JSON, et
+rejeté proprement (message d'erreur, aucune modification du niveau en cours)
+s'il est corrompu ou illégal — jamais un niveau à moitié importé.
 
 ---
 

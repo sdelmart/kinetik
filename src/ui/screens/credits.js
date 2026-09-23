@@ -23,6 +23,7 @@ export function creditsScreen(app) {
           drawTile(ctx, tile, 0, 0, size, {
             accent: '#00e5ff',
             glow: app.settings.glow,
+            colorblind: app.settings.colorblindMode,
             time: 600,
             gateOpen: true,
             switchPressed: false,
