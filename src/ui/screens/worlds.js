@@ -1,9 +1,9 @@
-import { el, button, topbar, stars, toast } from '../components.js';
+import { el, button, topbar, stars, toast, confirmDialog } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { summarizeWorld } from '../../core/score.js';
 import { recordsFor, isWorldUnlocked } from '../../state/save.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
-import { listCommunityWorlds, fetchCommunityWorld } from '../../state/community.js';
+import { listCommunityWorlds, fetchCommunityWorld, deleteCommunityWorld } from '../../state/community.js';
 
 export function worldsScreen(app) {
   const content = el('div.wrap');
@@ -60,58 +60,99 @@ export function worldsScreen(app) {
   // --- community sectors: fetched fresh from the configured server --------
 
   content.append(el('div.section-title', {}, t('community_section_title')));
-  const communityHost = el(
-    'div.empty',
-    {},
-    app.settings.communityServerUrl ? '…' : t('community_no_server'),
-  );
+  const communityHost = el('div');
   content.append(communityHost);
 
+  function showCommunityMessage(message) {
+    communityHost.replaceChildren(el('div.empty', {}, message));
+  }
+
   async function loadCommunityWorlds() {
-    if (!app.settings.communityServerUrl) return;
+    if (!app.settings.communityServerUrl) {
+      showCommunityMessage(t('community_no_server'));
+      return;
+    }
+    showCommunityMessage('…');
     const result = await listCommunityWorlds(app.settings.communityServerUrl);
     if (!result.ok) {
-      communityHost.textContent = t('community_test_fail');
+      showCommunityMessage(t('community_test_fail'));
       return;
     }
     if (!result.data.length) {
-      communityHost.textContent = t('community_empty');
+      showCommunityMessage(t('community_empty'));
       return;
     }
 
     const grid = el('div.grid');
     for (const summary of result.data) {
+      const playBtn = button(t('play'), async () => {
+        playBtn.disabled = true;
+        const full = await fetchCommunityWorld(app.settings.communityServerUrl, summary.id);
+        playBtn.disabled = false;
+        if (!full.ok) {
+          toast(t('community_test_fail'));
+          return;
+        }
+        app.cacheCommunityWorld({
+          id: full.data.world.id,
+          name: full.data.name,
+          accent: full.data.world.accent,
+          levels: full.data.world.levels,
+          builtin: false,
+          community: true,
+        });
+        app.go('levels', { worldId: full.data.world.id });
+      });
+
+      // Deleting needs the publish token, which proves ownership server-side —
+      // the author-name match here is only a client-side hint for who to show
+      // the button to, not itself a security check.
+      const canDelete =
+        app.settings.communityToken &&
+        app.settings.communityAuthor &&
+        summary.author === app.settings.communityAuthor;
+
+      const actions = el(
+        'div',
+        { style: { display: 'flex', gap: '8px', marginTop: '10px' } },
+        playBtn,
+      );
+      if (canDelete) {
+        actions.append(
+          button(
+            t('community_delete'),
+            async () => {
+              if (!(await confirmDialog(element, t('community_delete_confirm', { name: summary.name })))) {
+                return;
+              }
+              const result = await deleteCommunityWorld(
+                app.settings.communityServerUrl,
+                summary.id,
+                app.settings.communityToken,
+              );
+              if (result.ok) {
+                toast(t('community_delete_success'));
+                loadCommunityWorlds();
+              } else {
+                toast(t('community_delete_fail', { error: result.error }));
+              }
+            },
+            { variant: 'ghost danger' },
+          ),
+        );
+      }
+
       const card = el(
-        'button.card',
-        {
-          type: 'button',
-          style: { '--card-accent': summary.accent ?? 'var(--accent)' },
-          onclick: async () => {
-            card.disabled = true;
-            const full = await fetchCommunityWorld(app.settings.communityServerUrl, summary.id);
-            card.disabled = false;
-            if (!full.ok) {
-              toast(t('community_test_fail'));
-              return;
-            }
-            app.cacheCommunityWorld({
-              id: full.data.world.id,
-              name: full.data.name,
-              accent: full.data.world.accent,
-              levels: full.data.world.levels,
-              builtin: false,
-              community: true,
-            });
-            app.go('levels', { worldId: full.data.world.id });
-          },
-        },
+        'div.card',
+        { style: { '--card-accent': summary.accent ?? 'var(--accent)', cursor: 'default' } },
         el('h3', {}, summary.name),
         el('div.sub', {}, t('community_by', { author: summary.author })),
         el('div.sub', {}, `${summary.levelCount} ${t('level').toLowerCase()}`),
+        actions,
       );
       grid.append(card);
     }
-    communityHost.replaceWith(grid);
+    communityHost.replaceChildren(grid);
   }
 
   const element = el(
