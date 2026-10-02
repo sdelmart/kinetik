@@ -18,6 +18,7 @@ import { toast } from '../components.js';
 import { computeStreak, DAILY_WORLD_ID } from '../../core/daily.js';
 import { recordsFor } from '../../state/save.js';
 import { GamepadWatcher } from '../gamepad.js';
+import { legendEntriesForLevel, legendSwatch } from '../legend.js';
 
 export function gameScreen(app, { worldId, levelIndex }) {
   const world = app.findWorld(worldId);
@@ -86,6 +87,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
   }, { variant: 'ghost' });
 
   const hintBtn = button('', () => useHint(), { variant: 'hint' });
+  const legendEntries = legendEntriesForLevel(level);
 
   const toolbar = el(
     'div.toolbar',
@@ -94,8 +96,33 @@ export function gameScreen(app, { worldId, levelIndex }) {
     redoBtn,
     button(`⟲ ${t('restart')}`, () => restart()),
     hintBtn,
+    legendEntries.length ? button(`❔ ${t('legend')}`, () => showLegend(), { variant: 'ghost' }) : null,
     muteBtn,
   );
+
+  function showLegend() {
+    const list = el('ul.legend-list');
+    for (const entry of legendEntries) {
+      list.append(el('li', {}, legendSwatch(entry, app.settings), el('span', {}, t(entry.key))));
+    }
+    element.append(
+      el(
+        'div.overlay',
+        { onclick: (event) => event.target.classList.contains('overlay') && closeLegend() },
+        el(
+          'div.panel.legend-panel',
+          {},
+          el('h2', {}, t('legend')),
+          list,
+          button(t('close'), () => closeLegend(), { variant: 'ghost' }),
+        ),
+      ),
+    );
+  }
+
+  function closeLegend() {
+    element.querySelector('.overlay')?.remove();
+  }
 
   const element = el(
     'div.screen.game',

@@ -291,6 +291,9 @@ export default {
   'legend.conveyor': 'Emporte ce qui s’y trouve.',
   'legend.teleporter': 'Relie les deux plots.',
   'legend.gate': 'S’ouvre tant qu’un poids est sur l’interrupteur.',
+  'legend.oneway': 'Ne se franchit que dans le sens de la flèche.',
+  'legend.keygate': 'Un conteneur poussé dans la serrure l’ouvre à jamais — et s’y bloque pour de bon.',
+  'legend.twin': 'Deux conteneurs liés : pousser l’un bouge l’autre en miroir.',
 
   'lab.title': 'Labyrinthe',
   'lab.intro': 'Un dédale médiéval. Chaque sas verrouillé exige une bonne réponse ; certains murs cachent un passage secret.',

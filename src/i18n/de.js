@@ -291,6 +291,9 @@ export default {
   'legend.conveyor': 'Befördert, was darauf steht.',
   'legend.teleporter': 'Verbindet die beiden Felder.',
   'legend.gate': 'Offen, solange Gewicht auf dem Schalter liegt.',
+  'legend.oneway': 'Nur in Pfeilrichtung passierbar.',
+  'legend.keygate': 'Ein ins Schlüsselloch geschobener Container öffnet es für immer – und bleibt selbst für immer stecken.',
+  'legend.twin': 'Zwei verbundene Container: Einen schieben bewegt den anderen gespiegelt.',
 
   'lab.title': 'Labyrinth',
   'lab.intro': 'Ein mittelalterliches Labyrinth. Jedes verriegelte Tor verlangt eine richtige Antwort; manche Wände verbergen einen Geheimgang.',

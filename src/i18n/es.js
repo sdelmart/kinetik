@@ -291,6 +291,9 @@ export default {
   'legend.conveyor': 'Arrastra lo que esté encima.',
   'legend.teleporter': 'Conecta los dos puntos.',
   'legend.gate': 'Se abre mientras haya peso en el interruptor.',
+  'legend.oneway': 'Solo se cruza en el sentido de la flecha.',
+  'legend.keygate': 'Un contenedor empujado a la cerradura la abre para siempre, y queda atrapado ahí.',
+  'legend.twin': 'Dos contenedores unidos: empujar uno mueve al otro en espejo.',
 
   'lab.title': 'Laberinto',
   'lab.intro': 'Un laberinto medieval. Cada compuerta cerrada exige una respuesta correcta; algunos muros esconden un pasaje secreto.',

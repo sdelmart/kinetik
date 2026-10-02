@@ -1,37 +1,11 @@
-import { el, button, topbar, tileSwatch } from '../components.js';
+import { el, button, topbar } from '../components.js';
 import { t } from '../../i18n/index.js';
-import { T } from '../../core/constants.js';
-import { drawTile } from '../../render/sprites.js';
-
-const LEGEND = [
-  [T.PIT, 'legend.pit'],
-  [T.FRAGILE, 'legend.fragile'],
-  [T.ICE, 'legend.ice'],
-  [T.CONV_RIGHT, 'legend.conveyor'],
-  [T.TELE_A, 'legend.teleporter'],
-  [T.GATE, 'legend.gate'],
-];
+import { LEGEND_ENTRIES, legendSwatch } from '../legend.js';
 
 export function creditsScreen(app) {
   const legend = el('ul.legend-list');
-  for (const [tile, key] of LEGEND) {
-    legend.append(
-      el(
-        'li',
-        {},
-        tileSwatch((ctx, size) =>
-          drawTile(ctx, tile, 0, 0, size, {
-            accent: '#00e5ff',
-            glow: app.settings.glow,
-            colorblind: app.settings.colorblindMode,
-            time: 600,
-            gateOpen: true,
-            switchPressed: false,
-          }),
-        ),
-        el('span', {}, t(key)),
-      ),
-    );
+  for (const entry of LEGEND_ENTRIES) {
+    legend.append(el('li', {}, legendSwatch(entry, app.settings), el('span', {}, t(entry.key))));
   }
 
   const body = el(

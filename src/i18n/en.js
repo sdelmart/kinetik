@@ -291,6 +291,9 @@ export default {
   'legend.conveyor': 'Carries whatever stands on it.',
   'legend.teleporter': 'Links the two pads.',
   'legend.gate': 'Open while a weight rests on the switch.',
+  'legend.oneway': 'Only passable in the direction of the arrow.',
+  'legend.keygate': 'A container pushed into the keyhole opens it forever — and gets stuck there for good.',
+  'legend.twin': 'Two linked containers: pushing one moves the other, mirrored.',
 
   'lab.title': 'Labyrinth',
   'lab.intro': 'A medieval maze. Every locked gate demands a right answer; some walls hide a secret passage.',
