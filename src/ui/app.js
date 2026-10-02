@@ -35,8 +35,10 @@ import { achievementsScreen } from './screens/achievements.js';
 import { statisticsScreen } from './screens/statistics.js';
 import { labyrinthMenuScreen } from './screens/labyrinthMenu.js';
 import { labyrinthScreen } from './screens/labyrinth.js';
+import { introScreen } from './screens/intro.js';
 
 const SCREENS = {
+  intro: introScreen,
   profiles: profilesScreen,
   menu: menuScreen,
   worlds: worldsScreen,
@@ -229,6 +231,6 @@ export class App {
   }
 
   start() {
-    this.go(this.profile ? 'menu' : 'profiles');
+    this.go('intro');
   }
 }

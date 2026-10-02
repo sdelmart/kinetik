@@ -1,0 +1,333 @@
+/* ---------- Intro: the crack ---------- */
+
+.intro-screen {
+  position: relative;
+  background: var(--bg-deep);
+  cursor: pointer;
+  overflow: hidden;
+  display: block;
+  user-select: none;
+}
+
+.intro-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.intro-shard {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(0, 229, 255, 0.05), transparent 60%),
+    linear-gradient(160deg, #0b1220 0%, #060911 55%, #04060b 100%);
+  transition: transform 0.78s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.78s ease 0.1s;
+  will-change: transform;
+}
+
+.intro-shard.left {
+  box-shadow: inset -1px 0 0 rgba(0, 229, 255, 0.08);
+}
+
+.intro-shard.right {
+  box-shadow: inset 1px 0 0 rgba(0, 229, 255, 0.08);
+}
+
+.intro-crack {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.intro-crack .crack-spine,
+.intro-crack .crack-branch {
+  fill: none;
+  stroke: var(--accent);
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2.5px var(--accent)) drop-shadow(0 0 9px color-mix(in srgb, var(--accent) 70%, transparent));
+  animation: crack-pulse 2.8s ease-in-out infinite;
+}
+
+.intro-crack .crack-spine {
+  stroke-width: 0.5;
+}
+
+.intro-crack .crack-branch {
+  stroke-width: 0.3;
+  opacity: 0.6;
+  animation-delay: 0.4s;
+}
+
+@keyframes crack-pulse {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 55%, transparent)); }
+  50% { opacity: 0.75; filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 16px color-mix(in srgb, var(--accent) 85%, transparent)); }
+}
+
+.intro-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  transform: translateX(-50%);
+  margin: 0;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  animation: hint-breathe 3.2s ease-in-out infinite;
+  transition: opacity 0.2s ease;
+}
+
+.intro-hint.hidden {
+  opacity: 0;
+}
+
+@keyframes hint-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+
+.intro-screen.breaking .intro-shard.left {
+  transform: translate(-115%, -6%) rotate(-7deg);
+}
+
+.intro-screen.breaking .intro-shard.right {
+  transform: translate(115%, 6%) rotate(7deg);
+}
+
+.intro-screen.breaking .intro-crack {
+  animation: crack-flash 0.5s ease-out forwards;
+}
+
+@keyframes crack-flash {
+  0% { opacity: 1; }
+  40% { opacity: 1; filter: brightness(2.4); }
+  100% { opacity: 0; }
+}
+
+/* ---------- Home: the two portals ---------- */
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin: 0 0 22px;
+}
+
+@media (max-width: 560px) {
+  .portal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.portal-card {
+  position: relative;
+  appearance: none;
+  cursor: pointer;
+  text-align: left;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: linear-gradient(165deg, rgba(20, 28, 46, 0.9), rgba(10, 14, 24, 0.95));
+  padding: 20px 18px;
+  color: var(--text);
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 190px;
+  overflow: hidden;
+  transition: transform 0.16s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  --portal-accent: var(--accent);
+}
+
+.portal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 70% at 85% -10%, color-mix(in srgb, var(--portal-accent) 20%, transparent), transparent 60%);
+  pointer-events: none;
+}
+
+.portal-card:hover:not(.locked) {
+  transform: translateY(-3px);
+  border-color: var(--portal-accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 24px color-mix(in srgb, var(--portal-accent) 25%, transparent);
+}
+
+.portal-card.labyrinth {
+  --portal-accent: var(--amber);
+}
+
+.portal-icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+}
+
+.portal-card h2 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--portal-accent);
+}
+
+.portal-card .sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+.portal-card .portal-cta {
+  margin-top: auto;
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--portal-accent);
+  padding: 7px 14px;
+  border: 1px solid color-mix(in srgb, var(--portal-accent) 50%, transparent);
+  border-radius: 99px;
+}
+
+.portal-card .bar {
+  margin-top: 2px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.portal-card .bar > i {
+  display: block;
+  height: 100%;
+  background: var(--portal-accent);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+/* ---------- Home: the vault seal (locked Labyrinth) ---------- */
+
+.portal-card.locked {
+  cursor: default;
+  --portal-accent: var(--text-faint);
+}
+
+.portal-card.locked:hover {
+  transform: none;
+}
+
+.vault-seal {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+}
+
+.vault-door {
+  position: relative;
+  height: 64px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+      135deg,
+      rgba(255, 179, 0, 0.14) 0px,
+      rgba(255, 179, 0, 0.14) 10px,
+      transparent 10px,
+      transparent 20px
+    ),
+    linear-gradient(180deg, #2a2f3a, #15181f);
+  border: 1px solid rgba(255, 179, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.vault-door::before,
+.vault-door::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #6b7280, #1b1e24);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.vault-door::before {
+  top: 6px;
+  left: 8px;
+}
+
+.vault-door::after {
+  bottom: 6px;
+  right: 8px;
+}
+
+.vault-iris {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+.vault-iris .ring {
+  fill: none;
+  stroke: rgba(255, 179, 0, 0.75);
+  stroke-width: 2.4;
+}
+
+.vault-iris .ring.outer {
+  stroke-dasharray: 5 4;
+  animation: iris-spin 10s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+.vault-iris .bolt {
+  fill: #ffb300;
+}
+
+@keyframes iris-spin {
+  to { transform: rotate(360deg); }
+}
+
+.vault-status {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vault-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber);
+  animation: vault-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes vault-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ---------- Home: secondary actions ---------- */
+
+.home-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 22px;
+}

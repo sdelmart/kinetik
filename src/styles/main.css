@@ -1,4 +1,5 @@
 @import './theme.css';
+@import './home.css';
 
 .app {
   position: relative;
@@ -150,7 +151,7 @@
 }
 
 .menu-inner {
-  width: min(560px, 100%);
+  width: min(680px, 100%);
   text-align: center;
 }
 
