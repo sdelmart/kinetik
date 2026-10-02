@@ -8,3 +8,7 @@ dist-single/
 src-tauri/target/
 src-tauri/gen/
 downloads/
+
+# Community server: local secrets and the runtime level store
+server/.env
+server/data/

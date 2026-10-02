@@ -38,6 +38,9 @@ export const DEFAULT_SETTINGS = {
   glow: true,
   scanlines: true,
   showGrid: true,
+  communityServerUrl: '',
+  communityToken: '',
+  communityAuthor: '',
 };
 
 /** 0 means "no cap": render as fast as the display refreshes. */
@@ -79,6 +82,9 @@ export function normalizeSettings(raw) {
     glow: input.glow !== false,
     scanlines: input.scanlines !== false,
     showGrid: input.showGrid !== false,
+    communityServerUrl: typeof input.communityServerUrl === 'string' ? input.communityServerUrl.trim() : '',
+    communityToken: typeof input.communityToken === 'string' ? input.communityToken.trim() : '',
+    communityAuthor: typeof input.communityAuthor === 'string' ? input.communityAuthor.trim().slice(0, 40) : '',
   };
 }
 

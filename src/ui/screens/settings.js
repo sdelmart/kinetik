@@ -12,6 +12,7 @@ import { isValidHex } from '../../core/color.js';
 import { MUSIC_TRACKS, playTrack, stopMusic } from '../../audio/music.js';
 import { BACKGROUNDS } from '../../render/background.js';
 import { sfx } from '../../audio/sfx.js';
+import { checkCommunityServer } from '../../state/community.js';
 
 export function settingsScreen(app) {
   const element = el('div.screen');
@@ -197,9 +198,50 @@ export function settingsScreen(app) {
     ),
   );
 
+  // --- community server ---
+
+  const textInput = (value, placeholder, onChange, type = 'text') =>
+    el('input', {
+      type,
+      value,
+      placeholder,
+      style: { width: '100%' },
+      onchange: (event) => onChange(event.target.value.trim()),
+    });
+
+  const serverUrlInput = textInput(
+    app.settings.communityServerUrl,
+    'https://kinetik.exemple.com',
+    (v) => app.updateSettings({ communityServerUrl: v }),
+  );
+  const tokenInput = textInput(
+    app.settings.communityToken,
+    t('community_token_placeholder'),
+    (v) => app.updateSettings({ communityToken: v }),
+    'password',
+  );
+  const authorInput = textInput(
+    app.settings.communityAuthor,
+    t('community_author_placeholder'),
+    (v) => app.updateSettings({ communityAuthor: v }),
+  );
+
+  const testServerBtn = button(t('community_test'), async () => {
+    const result = await checkCommunityServer(app.settings.communityServerUrl);
+    toast(result.ok ? t('community_test_ok', { count: result.data.worlds }) : t('community_test_fail'));
+  }, { variant: 'ghost' });
+
   const content = el(
     'div.wrap',
     {},
+    group(
+      t('community_server'),
+      el('div.row', {}, el('span.label', { style: { color: 'var(--text-faint)', fontSize: '0.8rem' } }, t('community_hint'))),
+      row(t('community_url'), serverUrlInput),
+      row(t('community_token'), tokenInput),
+      row(t('community_author'), authorInput),
+      el('div.row', {}, el('span.label', {}, ''), testServerBtn),
+    ),
     group(
       t('controls'),
       el('div.row', {}, el('span.label', { style: { color: 'var(--text-faint)', fontSize: '0.8rem' } }, t('rebind_hint'))),

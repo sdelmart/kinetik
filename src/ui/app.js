@@ -66,6 +66,9 @@ export class App {
     this.profile = resolveActiveProfile(this.profiles);
     this.current = null;
     this.route = { name: 'menu', params: {} };
+    // Fetched fresh from the community server each time they're browsed —
+    // never persisted, so there's nothing stale to keep in sync.
+    this.communityWorlds = [];
 
     const canvas = document.getElementById('background');
     this.background = canvas ? new BackgroundLayer(canvas) : null;
@@ -127,7 +130,14 @@ export class App {
   /** The daily challenge is generated on the fly, so it isn't in `worlds`. */
   findWorld(id) {
     if (id === DAILY_WORLD_ID) return dailyWorld();
-    return this.worlds.find((w) => w.id === id) ?? null;
+    return (
+      this.worlds.find((w) => w.id === id) ?? this.communityWorlds.find((w) => w.id === id) ?? null
+    );
+  }
+
+  /** Stashes a fetched community world just long enough to play it — see src/state/community.js. */
+  cacheCommunityWorld(world) {
+    this.communityWorlds = [...this.communityWorlds.filter((w) => w.id !== world.id), world];
   }
 
   /**

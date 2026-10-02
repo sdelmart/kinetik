@@ -14,6 +14,7 @@ import { BoardRenderer } from '../../render/renderer.js';
 import { drawTile, drawCrate, drawDrone } from '../../render/sprites.js';
 import { sfx } from '../../audio/sfx.js';
 import { isUsableWorld } from '../../state/save.js';
+import { publishCommunityWorld } from '../../state/community.js';
 
 const TERRAIN_TOOLS = [
   ['floor', T.FLOOR],
@@ -372,6 +373,28 @@ export function editorScreen(app) {
     URL.revokeObjectURL(url);
   }
 
+  async function publishToCommunity() {
+    if (!world) return;
+    const { communityServerUrl, communityToken, communityAuthor } = app.settings;
+    if (!communityServerUrl || !communityToken) {
+      toast(t('community_publish_missing_config'));
+      return;
+    }
+    const result = await publishCommunityWorld(communityServerUrl, {
+      token: communityToken,
+      author: communityAuthor,
+      name: world.name,
+      world: { id: world.id, accent: world.accent, levels: world.levels },
+    });
+    if (result.ok) {
+      sfx.click();
+      toast(t('community_publish_success'));
+    } else {
+      sfx.error();
+      toast(t('community_publish_fail', { error: result.error }));
+    }
+  }
+
   function importWorld() {
     const input = el('input', { type: 'file', accept: 'application/json' });
     input.addEventListener('change', async () => {
@@ -521,6 +544,7 @@ export function editorScreen(app) {
         { style: { display: 'flex', gap: '6px', marginTop: '8px' } },
         button(t('export_world'), exportWorld, { variant: 'icon ghost' }),
         button(t('import_world'), importWorld, { variant: 'icon ghost' }),
+        button(t('community_publish'), publishToCommunity, { variant: 'icon ghost' }),
       ),
     );
 

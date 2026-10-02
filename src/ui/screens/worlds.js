@@ -1,8 +1,9 @@
-import { el, button, topbar, stars } from '../components.js';
+import { el, button, topbar, stars, toast } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { summarizeWorld } from '../../core/score.js';
 import { recordsFor, isWorldUnlocked } from '../../state/save.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
+import { listCommunityWorlds, fetchCommunityWorld } from '../../state/community.js';
 
 export function worldsScreen(app) {
   const content = el('div.wrap');
@@ -56,6 +57,63 @@ export function worldsScreen(app) {
       : el('div.empty', {}, t('no_custom_worlds')),
   );
 
+  // --- community sectors: fetched fresh from the configured server --------
+
+  content.append(el('div.section-title', {}, t('community_section_title')));
+  const communityHost = el(
+    'div.empty',
+    {},
+    app.settings.communityServerUrl ? '…' : t('community_no_server'),
+  );
+  content.append(communityHost);
+
+  async function loadCommunityWorlds() {
+    if (!app.settings.communityServerUrl) return;
+    const result = await listCommunityWorlds(app.settings.communityServerUrl);
+    if (!result.ok) {
+      communityHost.textContent = t('community_test_fail');
+      return;
+    }
+    if (!result.data.length) {
+      communityHost.textContent = t('community_empty');
+      return;
+    }
+
+    const grid = el('div.grid');
+    for (const summary of result.data) {
+      const card = el(
+        'button.card',
+        {
+          type: 'button',
+          style: { '--card-accent': summary.accent ?? 'var(--accent)' },
+          onclick: async () => {
+            card.disabled = true;
+            const full = await fetchCommunityWorld(app.settings.communityServerUrl, summary.id);
+            card.disabled = false;
+            if (!full.ok) {
+              toast(t('community_test_fail'));
+              return;
+            }
+            app.cacheCommunityWorld({
+              id: full.data.world.id,
+              name: full.data.name,
+              accent: full.data.world.accent,
+              levels: full.data.world.levels,
+              builtin: false,
+              community: true,
+            });
+            app.go('levels', { worldId: full.data.world.id });
+          },
+        },
+        el('h3', {}, summary.name),
+        el('div.sub', {}, t('community_by', { author: summary.author })),
+        el('div.sub', {}, `${summary.levelCount} ${t('level').toLowerCase()}`),
+      );
+      grid.append(card);
+    }
+    communityHost.replaceWith(grid);
+  }
+
   const element = el(
     'div.screen',
     {},
@@ -63,5 +121,10 @@ export function worldsScreen(app) {
     el('div.content', {}, content),
   );
 
-  return { element };
+  return {
+    element,
+    mount() {
+      loadCommunityWorlds();
+    },
+  };
 }
