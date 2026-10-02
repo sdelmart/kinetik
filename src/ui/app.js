@@ -33,6 +33,8 @@ import { editorScreen } from './screens/editor.js';
 import { creditsScreen } from './screens/credits.js';
 import { achievementsScreen } from './screens/achievements.js';
 import { statisticsScreen } from './screens/statistics.js';
+import { labyrinthMenuScreen } from './screens/labyrinthMenu.js';
+import { labyrinthScreen } from './screens/labyrinth.js';
 
 const SCREENS = {
   profiles: profilesScreen,
@@ -45,6 +47,8 @@ const SCREENS = {
   credits: creditsScreen,
   achievements: achievementsScreen,
   statistics: statisticsScreen,
+  labyrinthMenu: labyrinthMenuScreen,
+  labyrinth: labyrinthScreen,
 };
 
 /**

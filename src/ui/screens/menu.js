@@ -46,6 +46,7 @@ export function menuScreen(app) {
             variant: 'primary big',
           }),
           dailyButton,
+          button(`🏰 ${t('lab.title')}`, () => app.go('labyrinthMenu')),
           button(t('editor'), () => app.go('editor')),
           button(t('statistics'), () => app.go('statistics')),
           button(t('achievements'), () => app.go('achievements')),
