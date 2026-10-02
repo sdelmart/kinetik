@@ -254,6 +254,10 @@ export default {
   'error.gate_without_switch': 'Eine Schleuse braucht einen Schalter.',
   'error.switch_without_gate': 'Ein Schalter braucht eine Schleuse.',
   'error.invalid_par': 'Der Zug-Richtwert ist ungültig.',
+  'error.keygate_without_keyhole': 'Eine Schlüsselschleuse braucht ein Schlüsselloch.',
+  'error.keyhole_without_keygate': 'Ein Schlüsselloch braucht eine Schlüsselschleuse.',
+  'error.twin_duplicate': 'Nur ein Zwillingscontainer je Typ.',
+  'error.twin_unpaired': 'Zwillingscontainer gibt es nur als Paar.',
 
   credits_role_design: 'Konzept und Entwicklung',
   credits_tech: 'Technik',

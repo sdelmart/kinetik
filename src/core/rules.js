@@ -1,4 +1,11 @@
-import { T, DIRS, CONVEYOR_DIRS, SETTLE_LIMIT } from './constants.js';
+import {
+  T,
+  DIRS,
+  CONVEYOR_DIRS,
+  CONVEYOR_DIR_NAME,
+  SETTLE_LIMIT,
+  OPPOSITE_DIR,
+} from './constants.js';
 import {
   cloneState,
   shift,
@@ -19,8 +26,8 @@ import {
  *  - fragile  : collapses into an impassable hole once anything leaves it
  */
 
-const canEnter = (state, kind, i) =>
-  kind === 'player' ? canPlayerEnter(state, i) : canCrateEnter(state, i);
+const canEnter = (state, kind, i, dirName) =>
+  kind === 'player' ? canPlayerEnter(state, i, dirName) : canCrateEnter(state, i, dirName);
 
 function moveEntity(state, kind, from, to) {
   if (kind === 'player') {
@@ -43,7 +50,7 @@ function teleportExit(state, tile) {
  * Resolves surface effects after an entity lands on `start`.
  * @returns final cell index, or -1 when the entity was consumed by a pit.
  */
-function settle(state, kind, start, dir, events, trail) {
+function settle(state, kind, start, dir, headingName, events, trail) {
   let index = start;
   let heading = dir;
   let teleported = false;
@@ -56,6 +63,12 @@ function settle(state, kind, start, dir, events, trail) {
       state.terrain[index] = T.PIT_FILLED;
       events.push({ type: 'fill', index });
       return -1;
+    }
+
+    if (kind === 'crate' && tile === T.KEYHOLE) {
+      state.terrain[index] = T.KEYHOLE_USED;
+      events.push({ type: 'key', index });
+      return index;
     }
 
     if (tile === T.TELE_A || tile === T.TELE_B) {
@@ -76,15 +89,19 @@ function settle(state, kind, start, dir, events, trail) {
 
     const nextDir = tile === T.ICE ? heading : CONVEYOR_DIRS[tile];
     if (!nextDir) return index;
+    const nextDirName = tile === T.ICE ? headingName : CONVEYOR_DIR_NAME[tile];
 
     const next = shift(state, index, nextDir);
-    if (next < 0 || isOccupied(state, next) || !canEnter(state, kind, next)) return index;
+    if (next < 0 || isOccupied(state, next) || !canEnter(state, kind, next, nextDirName)) {
+      return index;
+    }
 
     moveEntity(state, kind, index, next);
     events.push({ type: 'slide', kind, from: index, to: next });
     trail.push(index);
     index = next;
     heading = nextDir;
+    headingName = nextDirName;
   }
   return index;
 }
@@ -120,29 +137,77 @@ export function step(current, dirName) {
   const crateTrail = [];
 
   if (state.crates.has(to)) {
+    // A crate seated in a used keyhole has given up its key for good — it can't budge.
+    if (state.terrain[to] === T.KEYHOLE_USED) return null;
+
     const beyond = shift(state, to, dir);
-    if (beyond < 0 || isOccupied(state, beyond) || !canCrateEnter(state, beyond)) return null;
-    if (!canPlayerEnter(state, to)) return null;
+    if (beyond < 0 || isOccupied(state, beyond) || !canCrateEnter(state, beyond, dirName)) return null;
+    if (!canPlayerEnter(state, to, dirName)) return null;
+
+    // A twin-linked crate moves its partner the same instant, mirrored.
+    const partner = state.twins.get(to);
+    let partnerBeyond = -1;
+    let mirrorDirName = null;
+    if (partner !== undefined) {
+      // A twin locked into a used keyhole anchors its partner in place too.
+      if (state.terrain[partner] === T.KEYHOLE_USED) return null;
+      mirrorDirName = OPPOSITE_DIR[dirName];
+      const mirrorDir = DIRS[mirrorDirName];
+      partnerBeyond = shift(state, partner, mirrorDir);
+      if (
+        partnerBeyond < 0 ||
+        partnerBeyond === beyond ||
+        isOccupied(state, partnerBeyond) ||
+        !canCrateEnter(state, partnerBeyond, mirrorDirName)
+      ) {
+        return null;
+      }
+    }
 
     state.crates.delete(to);
     state.crates.add(beyond);
     crateTrail.push(to);
     events.push({ type: 'push' });
-    settle(state, 'crate', beyond, dir, events, crateTrail);
+    const primaryRest = settle(state, 'crate', beyond, dir, dirName, events, crateTrail);
+
+    if (partner !== undefined) {
+      state.crates.delete(partner);
+      state.crates.add(partnerBeyond);
+      state.twins.delete(to);
+      state.twins.delete(partner);
+      crateTrail.push(partner);
+      events.push({ type: 'push', twin: true });
+      const partnerRest = settle(
+        state,
+        'crate',
+        partnerBeyond,
+        DIRS[mirrorDirName],
+        mirrorDirName,
+        events,
+        crateTrail,
+      );
+      // Re-link at the post-settle resting cells — the pair stays linked unless
+      // one of them was consumed by a pit or locked into a keyhole along the way.
+      if (primaryRest >= 0 && partnerRest >= 0) {
+        state.twins.set(primaryRest, partnerRest);
+        state.twins.set(partnerRest, primaryRest);
+      }
+    }
+
     state.pushes++;
-  } else if (!canPlayerEnter(state, to)) {
+  } else if (!canPlayerEnter(state, to, dirName)) {
     return null;
   }
 
   // Surface effects can bring a crate back onto the tile we were entering.
-  if (state.crates.has(to) || !canPlayerEnter(state, to)) return null;
+  if (state.crates.has(to) || !canPlayerEnter(state, to, dirName)) return null;
 
   state.player = to;
   state.moves++;
   events.push({ type: 'move' });
 
   const playerTrail = [from];
-  settle(state, 'player', to, dir, events, playerTrail);
+  settle(state, 'player', to, dir, dirName, events, playerTrail);
   collapseVacatedTiles(state, [...crateTrail, ...playerTrail], events);
 
   return { state, events };

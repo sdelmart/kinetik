@@ -43,11 +43,11 @@ describe('level codes', () => {
     expect(decoded.entities).toEqual(level.entities);
   });
 
-  it('produces exactly one character per cell, plus a short header', () => {
+  it('produces exactly two characters per cell, plus a short header', () => {
     const level = parseCompact(['######', '#@$.*#', '#....#', '######'], { par: 5 });
     const code = encodeLevel(level);
     const [, , , , body] = code.split('.');
-    expect(body.length).toBe(6 * 4);
+    expect(body.length).toBe(6 * 4 * 2);
   });
 
   it('rejects garbage input instead of throwing', () => {
@@ -59,8 +59,30 @@ describe('level codes', () => {
 
   it('rejects a wrong-version code', () => {
     const level = parseCompact(['######', '#@$.*#', '#....#', '######'], { par: 5 });
-    const code = encodeLevel(level).replace(/^K1/, 'K2');
+    const code = encodeLevel(level).replace(/^K2/, 'K9');
     expect(decodeLevel(code)).toEqual({ ok: false, reason: 'invalid_code' });
+  });
+
+  it('still decodes a legacy K1 code (pre-expansion mechanic set)', () => {
+    // K1 packed terrain×entity (combined = terrainIndex*3 + entityIndex) into
+    // one character; rebuild that packing by hand to keep exercising the
+    // legacy path even as the current (wider) constants grow past it.
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const level = parseCompact(['######', '#@$.*#', '#....#', '######'], { par: 5 });
+    const TERRAIN_INDEX = { '#': 1, '.': 0, '*': 2 };
+    const ENTITY_INDEX = { '.': 0, '@': 1, $: 2 };
+    let body = '';
+    for (let y = 0; y < level.terrain.length; y++) {
+      for (let x = 0; x < level.terrain[y].length; x++) {
+        const combined = TERRAIN_INDEX[level.terrain[y][x]] * 3 + ENTITY_INDEX[level.entities[y][x]];
+        body += ALPHABET[combined];
+      }
+    }
+    const code = ['K1', '6', '4', '5', body].join('.');
+    const { ok, level: decoded } = decodeLevel(code);
+    expect(ok).toBe(true);
+    expect(decoded.terrain).toEqual(level.terrain);
+    expect(decoded.entities).toEqual(level.entities);
   });
 
   it('rejects a body whose length does not match width×height', () => {

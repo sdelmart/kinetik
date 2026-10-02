@@ -254,6 +254,10 @@ export default {
   'error.gate_without_switch': 'A gate needs a switch.',
   'error.switch_without_gate': 'A switch needs a gate.',
   'error.invalid_par': 'The move par is invalid.',
+  'error.keygate_without_keyhole': 'A key-gate needs a keyhole.',
+  'error.keyhole_without_keygate': 'A keyhole needs a key-gate.',
+  'error.twin_duplicate': 'Only one twin crate of each kind.',
+  'error.twin_unpaired': 'Twin crates come in a pair.',
 
   credits_role_design: 'Design and development',
   credits_tech: 'Built with',

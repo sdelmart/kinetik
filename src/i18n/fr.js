@@ -254,6 +254,10 @@ export default {
   'error.gate_without_switch': 'Un sas nécessite un interrupteur.',
   'error.switch_without_gate': 'Un interrupteur nécessite un sas.',
   'error.invalid_par': 'La référence de déplacements est invalide.',
+  'error.keygate_without_keyhole': 'Un sas à clé nécessite une serrure.',
+  'error.keyhole_without_keygate': 'Une serrure nécessite un sas à clé.',
+  'error.twin_duplicate': 'Un seul conteneur jumeau de chaque type.',
+  'error.twin_unpaired': 'Les conteneurs jumeaux vont par paire.',
 
   credits_role_design: 'Conception et développement',
   credits_tech: 'Technologies',

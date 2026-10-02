@@ -16,17 +16,20 @@ import { validateLevel, randomId } from './level.js';
  * alternative to exporting a whole sector as a JSON file, for sharing one
  * level in a chat message or a forum post.
  *
- * Every cell is exactly one character: a terrain type (16 possible) and an
- * entity (3 possible: none/drone/container) combine into one index in
- * [0, 48), which indexes directly into a 64-symbol alphabet. That alphabet
- * (base64url, no padding) has no characters that need escaping in a URL or a
- * chat message, and the fixed 1-char-per-cell width makes the format trivial
- * to validate: reject anything whose body length isn't exactly width×height.
+ * v2 (current): each cell is two characters, one indexing the terrain type
+ * and one indexing the entity, each into a 64-symbol alphabet (base64url, no
+ * padding — nothing that needs escaping in a URL or a chat message). Two
+ * independent alphabets avoid ever outgrowing 64 values as new tile or
+ * entity kinds are added, unlike packing both into a single combined index.
+ *
+ * v1 codes (prefix `K1`) packed terrain×entity into one combined index and
+ * are still decoded for levels shared before the mechanic set grew past what
+ * that packing could hold.
  */
 const CODE_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-const ENTITY_COUNT = Object.keys(E).length; // 3
-const VERSION = 'K1';
+const LEGACY_ENTITY_COUNT = 3; // frozen: none/drone/container, as encoded by K1
+const VERSION = 'K2';
 
 export function encodeLevel(level) {
   const height = level.terrain.length;
@@ -37,7 +40,7 @@ export function encodeLevel(level) {
     for (let x = 0; x < width; x++) {
       const terrainIndex = TERRAIN_GLYPHS[level.terrain[y][x]] ?? T.FLOOR;
       const entityIndex = ENTITY_GLYPHS[level.entities[y][x]] ?? E.NONE;
-      body += CODE_ALPHABET[terrainIndex * ENTITY_COUNT + entityIndex];
+      body += CODE_ALPHABET[terrainIndex] + CODE_ALPHABET[entityIndex];
     }
   }
 
@@ -51,7 +54,10 @@ export function encodeLevel(level) {
  */
 export function decodeLevel(code) {
   const parts = String(code ?? '').trim().split('.');
-  if (parts.length !== 5 || parts[0] !== VERSION) return { ok: false, reason: 'invalid_code' };
+  if (parts.length !== 5 || (parts[0] !== VERSION && parts[0] !== 'K1')) {
+    return { ok: false, reason: 'invalid_code' };
+  }
+  const legacy = parts[0] === 'K1';
 
   const [, widthStr, heightStr, parStr, body] = parts;
   const width = parseInt(widthStr, 36);
@@ -64,7 +70,8 @@ export function decodeLevel(code) {
   if (width < MIN_SIZE || width > MAX_SIZE || height < MIN_SIZE || height > MAX_SIZE) {
     return { ok: false, reason: 'invalid_code' };
   }
-  if (par <= 0 || body.length !== width * height) {
+  const expectedLength = legacy ? width * height : width * height * 2;
+  if (par <= 0 || body.length !== expectedLength) {
     return { ok: false, reason: 'invalid_code' };
   }
 
@@ -74,11 +81,21 @@ export function decodeLevel(code) {
     let terrainRow = '';
     let entityRow = '';
     for (let x = 0; x < width; x++) {
-      const combined = CODE_ALPHABET.indexOf(body[y * width + x]);
-      if (combined < 0) return { ok: false, reason: 'invalid_code' };
-
-      const terrainGlyph = GLYPH_BY_TERRAIN[Math.floor(combined / ENTITY_COUNT)];
-      const entityGlyph = GLYPH_BY_ENTITY[combined % ENTITY_COUNT];
+      let terrainGlyph;
+      let entityGlyph;
+      if (legacy) {
+        const combined = CODE_ALPHABET.indexOf(body[y * width + x]);
+        if (combined < 0) return { ok: false, reason: 'invalid_code' };
+        terrainGlyph = GLYPH_BY_TERRAIN[Math.floor(combined / LEGACY_ENTITY_COUNT)];
+        entityGlyph = GLYPH_BY_ENTITY[combined % LEGACY_ENTITY_COUNT];
+      } else {
+        const cell = (y * width + x) * 2;
+        const terrainIndex = CODE_ALPHABET.indexOf(body[cell]);
+        const entityIndex = CODE_ALPHABET.indexOf(body[cell + 1]);
+        if (terrainIndex < 0 || entityIndex < 0) return { ok: false, reason: 'invalid_code' };
+        terrainGlyph = GLYPH_BY_TERRAIN[terrainIndex];
+        entityGlyph = GLYPH_BY_ENTITY[entityIndex];
+      }
       if (terrainGlyph === undefined || entityGlyph === undefined) {
         return { ok: false, reason: 'invalid_code' };
       }

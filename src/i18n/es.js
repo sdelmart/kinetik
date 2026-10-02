@@ -254,6 +254,10 @@ export default {
   'error.gate_without_switch': 'Una compuerta necesita un interruptor.',
   'error.switch_without_gate': 'Un interruptor necesita una compuerta.',
   'error.invalid_par': 'La referencia de movimientos es inválida.',
+  'error.keygate_without_keyhole': 'Una compuerta con llave necesita una cerradura.',
+  'error.keyhole_without_keygate': 'Una cerradura necesita una compuerta con llave.',
+  'error.twin_duplicate': 'Solo un contenedor gemelo de cada tipo.',
+  'error.twin_unpaired': 'Los contenedores gemelos van en pareja.',
 
   credits_role_design: 'Diseño y desarrollo',
   credits_tech: 'Tecnologías',

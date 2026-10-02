@@ -5,13 +5,16 @@ import { T } from './constants.js';
 const ORDER = ['up', 'right', 'down', 'left'];
 
 /**
- * Only pits and fragile plates ever change, so the state key tracks those cells
- * instead of the whole board — which keeps the frontier small enough to search.
+ * Only pits, fragile plates and keyholes ever change terrain, so the state key
+ * tracks those cells instead of the whole board — which keeps the frontier
+ * small enough to search.
  */
 function makeKeyFn(start) {
   const mutable = [];
   for (let i = 0; i < start.terrain.length; i++) {
-    if (start.terrain[i] === T.PIT || start.terrain[i] === T.FRAGILE) mutable.push(i);
+    if (start.terrain[i] === T.PIT || start.terrain[i] === T.FRAGILE || start.terrain[i] === T.KEYHOLE) {
+      mutable.push(i);
+    }
   }
   return (state) => {
     const crates = [...state.crates].sort((a, b) => a - b).join(',');

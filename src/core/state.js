@@ -1,4 +1,4 @@
-import { T, E, TERRAIN_GLYPHS, ENTITY_GLYPHS } from './constants.js';
+import { T, E, TERRAIN_GLYPHS, ENTITY_GLYPHS, ONEWAY_DIR_NAME } from './constants.js';
 import { levelSize } from './level.js';
 
 /**
@@ -9,7 +9,10 @@ export function createState(level) {
   const { width, height } = levelSize(level);
   const terrain = new Uint8Array(width * height);
   const crates = new Set();
+  const twins = new Map();
   let player = -1;
+  let twinA = -1;
+  let twinB = -1;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -18,10 +21,22 @@ export function createState(level) {
       const entity = ENTITY_GLYPHS[level.entities[y][x]];
       if (entity === E.PLAYER) player = i;
       else if (entity === E.CRATE) crates.add(i);
+      else if (entity === E.CRATE_A) {
+        crates.add(i);
+        twinA = i;
+      } else if (entity === E.CRATE_B) {
+        crates.add(i);
+        twinB = i;
+      }
     }
   }
 
-  return { width, height, terrain, crates, player, moves: 0, pushes: 0, facing: 'down' };
+  if (twinA >= 0 && twinB >= 0) {
+    twins.set(twinA, twinB);
+    twins.set(twinB, twinA);
+  }
+
+  return { width, height, terrain, crates, twins, player, moves: 0, pushes: 0, facing: 'down' };
 }
 
 export function cloneState(state) {
@@ -30,6 +45,7 @@ export function cloneState(state) {
     height: state.height,
     terrain: new Uint8Array(state.terrain),
     crates: new Set(state.crates),
+    twins: new Map(state.twins),
     player: state.player,
     moves: state.moves,
     pushes: state.pushes,
@@ -55,23 +71,40 @@ export function gatesOpen(state) {
   return false;
 }
 
+/** Key-gates open permanently once any keyhole has been seated by a crate. */
+export function keyGatesOpen(state) {
+  for (let i = 0; i < state.terrain.length; i++) {
+    if (state.terrain[i] === T.KEYHOLE_USED) return true;
+  }
+  return false;
+}
+
 export function isOccupied(state, i) {
   return state.player === i || state.crates.has(i);
 }
 
-export function canPlayerEnter(state, i) {
+/**
+ * `dirName` is the heading the entity is entering with — required to resolve
+ * one-way tiles, which block entry against their arrow. Omit it when merely
+ * re-checking a cell the entity already occupies.
+ */
+export function canPlayerEnter(state, i, dirName) {
   if (i < 0) return false;
   const t = state.terrain[i];
   if (t === T.WALL || t === T.PIT || t === T.BROKEN) return false;
   if (t === T.GATE && !gatesOpen(state)) return false;
+  if (t === T.GATE_KEY && !keyGatesOpen(state)) return false;
+  if (dirName && ONEWAY_DIR_NAME[t] && ONEWAY_DIR_NAME[t] !== dirName) return false;
   return true;
 }
 
-export function canCrateEnter(state, i) {
+export function canCrateEnter(state, i, dirName) {
   if (i < 0) return false;
   const t = state.terrain[i];
   if (t === T.WALL || t === T.BROKEN) return false;
   if (t === T.GATE && !gatesOpen(state)) return false;
+  if (t === T.GATE_KEY && !keyGatesOpen(state)) return false;
+  if (dirName && ONEWAY_DIR_NAME[t] && ONEWAY_DIR_NAME[t] !== dirName) return false;
   return true;
 }
 

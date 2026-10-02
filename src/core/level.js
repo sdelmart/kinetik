@@ -63,6 +63,22 @@ export function parseCompact(rows, meta = {}) {
           t += '*';
           e += '$';
           break;
+        case '1':
+          t += '.';
+          e += '1';
+          break;
+        case '2':
+          t += '.';
+          e += '2';
+          break;
+        case '3':
+          t += '*';
+          e += '1';
+          break;
+        case '4':
+          t += '*';
+          e += '2';
+          break;
         case ' ':
           t += '.';
           e += '.';
@@ -124,7 +140,12 @@ export function validateLevel(level) {
   const players = countGlyph(level.entities, '@');
   if (players !== 1) return fail(players === 0 ? 'no_player' : 'many_players');
 
-  const crates = countGlyph(level.entities, '$');
+  const twinA = countGlyph(level.entities, '1');
+  const twinB = countGlyph(level.entities, '2');
+  if (twinA > 1 || twinB > 1) return fail('twin_duplicate');
+  if (twinA !== twinB) return fail('twin_unpaired');
+
+  const crates = countGlyph(level.entities, '$') + twinA + twinB;
   const targets = countGlyph(level.terrain, '*');
   if (targets === 0) return fail('no_target');
   if (crates < targets) return fail('not_enough_crates');
@@ -138,6 +159,11 @@ export function validateLevel(level) {
   const switches = countGlyph(level.terrain, 's');
   if (gates > 0 && switches === 0) return fail('gate_without_switch');
   if (switches > 0 && gates === 0) return fail('switch_without_gate');
+
+  const keyGates = countGlyph(level.terrain, 'q');
+  const keyholes = countGlyph(level.terrain, 'k');
+  if (keyGates > 0 && keyholes === 0) return fail('keygate_without_keyhole');
+  if (keyholes > 0 && keyGates === 0) return fail('keyhole_without_keygate');
 
   if (!Number.isFinite(level.par) || level.par <= 0) return fail('invalid_par');
 
