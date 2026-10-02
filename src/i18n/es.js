@@ -1,6 +1,7 @@
 export default {
   tagline: 'Protocolo de clasificación industrial',
   intro_hint: 'Toca la grieta para entrar',
+  intro_tagline: 'Una brecha se ha abierto en el protocolo.',
   'home.sokoban_title': 'Sokoban',
   'home.sokoban_tagline': 'Protocolo de clasificación industrial',
   'home.labyrinth_title': 'Laberinto',

@@ -1,6 +1,7 @@
 export default {
   tagline: 'Industrielles Sortierprotokoll',
   intro_hint: 'Den Riss berühren, um einzutreten',
+  intro_tagline: 'Ein Riss hat sich im Protokoll geöffnet.',
   'home.sokoban_title': 'Sokoban',
   'home.sokoban_tagline': 'Industrielles Sortierprotokoll',
   'home.labyrinth_title': 'Labyrinth',

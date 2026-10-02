@@ -1,6 +1,7 @@
 export default {
   tagline: 'Industrial sorting protocol',
   intro_hint: 'Touch the crack to enter',
+  intro_tagline: 'A breach has opened in the protocol.',
   'home.sokoban_title': 'Sokoban',
   'home.sokoban_tagline': 'Industrial sorting protocol',
   'home.labyrinth_title': 'Labyrinth',

@@ -12,6 +12,9 @@
 .intro-stage {
   position: absolute;
   inset: 0;
+  transform-origin: 50% 50%;
+  transition: transform 0.95s cubic-bezier(0.55, 0, 0.85, 0.35), filter 0.95s ease-in;
+  will-change: transform, filter;
 }
 
 .intro-shard {
@@ -90,22 +93,85 @@
   50% { opacity: 0.9; }
 }
 
+.intro-screen.breaking .intro-stage {
+  transform: scale(22);
+  filter: blur(3px) brightness(1.8);
+}
+
 .intro-screen.breaking .intro-shard.left {
-  transform: translate(-115%, -6%) rotate(-7deg);
+  transform: translate(-70%, -4%) rotate(-4deg);
 }
 
 .intro-screen.breaking .intro-shard.right {
-  transform: translate(115%, 6%) rotate(7deg);
+  transform: translate(70%, 4%) rotate(4deg);
 }
 
 .intro-screen.breaking .intro-crack {
-  animation: crack-flash 0.5s ease-out forwards;
+  animation: crack-flash 0.6s ease-in forwards;
 }
 
 @keyframes crack-flash {
   0% { opacity: 1; }
-  40% { opacity: 1; filter: brightness(2.4); }
-  100% { opacity: 0; }
+  30% { opacity: 1; filter: brightness(2.4); }
+  100% { opacity: 0; filter: brightness(4); }
+}
+
+/* A burst of light from the gap itself, timed to peak as the zoom finishes —
+   sells "passing through" rather than just "the screen broke". */
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% 46%,
+    #ffffff 0%,
+    var(--accent) 35%,
+    color-mix(in srgb, var(--accent) 40%, transparent) 55%,
+    transparent 75%
+  );
+}
+
+.intro-screen.breaking .intro-flash {
+  animation: flash-burst 0.95s cubic-bezier(0.3, 0, 0.6, 1) forwards;
+}
+
+@keyframes flash-burst {
+  0%, 45% { opacity: 0; transform: scale(0.15); }
+  80% { opacity: 1; transform: scale(1.4); }
+  100% { opacity: 1; transform: scale(2.4); }
+}
+
+.intro-title {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+.intro-title h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: clamp(1.8rem, 6vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  text-shadow: 0 0 24px color-mix(in srgb, var(--accent) 45%, transparent);
+  opacity: 0.85;
+}
+
+.intro-title p {
+  margin: 0;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+}
+
+.intro-title.hidden {
+  opacity: 0;
 }
 
 /* ---------- Home: the two portals ---------- */

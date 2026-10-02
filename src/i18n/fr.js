@@ -1,6 +1,7 @@
 export default {
   tagline: 'Protocole de tri industriel',
   intro_hint: 'Touchez la faille pour entrer',
+  intro_tagline: 'Une brèche s’est ouverte dans le protocole.',
   'home.sokoban_title': 'Sokoban',
   'home.sokoban_tagline': 'Protocole de tri industriel',
   'home.labyrinth_title': 'Labyrinthe',

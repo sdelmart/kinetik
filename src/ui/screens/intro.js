@@ -55,22 +55,33 @@ export function introScreen(app) {
   const crackGlow = svg('intro-crack');
   const leftShard = el('div.intro-shard.left', { style: { clipPath: leftClip } });
   const rightShard = el('div.intro-shard.right', { style: { clipPath: rightClip } });
+  const stage = el('div.intro-stage', {}, leftShard, rightShard, crackGlow);
+  const flash = el('div.intro-flash');
+  const title = el(
+    'div.intro-title',
+    {},
+    el('h1', {}, 'KINETIK'),
+    el('p', {}, t('intro_tagline')),
+  );
   const hint = el('p.intro-hint', {}, t('intro_hint'));
 
   function enter() {
     if (breaking) return;
     breaking = true;
     element.classList.add('breaking');
+    title.classList.add('hidden');
     hint.classList.add('hidden');
     setTimeout(() => {
       app.go(app.profile ? 'menu' : 'profiles');
-    }, 780);
+    }, 950);
   }
 
   const element = el(
     'div.screen.intro-screen',
     { onclick: enter },
-    el('div.intro-stage', {}, leftShard, rightShard, crackGlow),
+    stage,
+    flash,
+    title,
     hint,
   );
 
