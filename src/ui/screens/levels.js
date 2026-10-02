@@ -2,12 +2,51 @@ import { el, button, topbar, stars } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { formatTime } from '../../core/score.js';
 import { recordsFor, isLevelUnlocked } from '../../state/save.js';
+import { fetchWorldLeaderboard } from '../../state/leaderboard.js';
 
 export function levelsScreen(app, { worldId }) {
   const world = app.findWorld(worldId);
   if (!world) {
     app.go('worlds');
     return { element: el('div.screen') };
+  }
+
+  async function showLeaderboard() {
+    const body = el('div.leaderboard', {}, '…');
+    element.append(
+      el(
+        'div.overlay',
+        { onclick: (event) => event.target.classList.contains('overlay') && close() },
+        el(
+          'div.panel',
+          {},
+          el('h2', {}, t('leaderboard_world_title')),
+          body,
+          button(t('close'), () => close(), { variant: 'ghost' }),
+        ),
+      ),
+    );
+    function close() {
+      element.querySelector('.overlay')?.remove();
+    }
+
+    const result = await fetchWorldLeaderboard(app.settings.communityServerUrl, world.id);
+    const ranking = result.ok ? result.data.ranking : [];
+    if (!ranking.length) {
+      body.replaceChildren(t('leaderboard_empty'));
+      return;
+    }
+    body.replaceChildren(
+      ...ranking.slice(0, 20).map((row, rank) =>
+        el(
+          'div.leaderboard-row',
+          { class: row.author === app.settings.communityAuthor ? 'me' : '' },
+          el('span.leaderboard-rank', {}, `#${rank + 1}`),
+          el('span.leaderboard-name', {}, row.author),
+          el('span.leaderboard-score', {}, String(row.totalScore)),
+        ),
+      ),
+    );
   }
 
   const records = recordsFor(app.save, world.id);
@@ -47,7 +86,13 @@ export function levelsScreen(app, { worldId }) {
   const element = el(
     'div.screen',
     {},
-    topbar(app.worldTitle(world), button(t('back'), () => app.go('worlds'), { variant: 'ghost' })),
+    topbar(
+      app.worldTitle(world),
+      app.settings.communityServerUrl
+        ? button(t('leaderboard_button'), () => showLeaderboard(), { variant: 'ghost' })
+        : null,
+      button(t('back'), () => app.go('worlds'), { variant: 'ghost' }),
+    ),
     el('div.content', {}, el('div.wrap', {}, grid)),
   );
 

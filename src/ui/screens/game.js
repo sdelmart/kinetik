@@ -18,6 +18,7 @@ import { toast } from '../components.js';
 import { computeStreak, DAILY_WORLD_ID } from '../../core/daily.js';
 import { recordsFor } from '../../state/save.js';
 import { GamepadWatcher } from '../gamepad.js';
+import { submitScore, fetchLevelLeaderboard } from '../../state/leaderboard.js';
 import { legendEntriesForLevel, legendSwatch } from '../legend.js';
 
 export function gameScreen(app, { worldId, levelIndex }) {
@@ -316,6 +317,22 @@ export function gameScreen(app, { worldId, levelIndex }) {
 
     const newlyUnlocked = app.checkAchievements();
 
+    const { communityServerUrl, communityToken, communityAuthor } = app.settings;
+    if (communityServerUrl && communityToken && communityAuthor) {
+      submitScore(communityServerUrl, {
+        token: communityToken,
+        worldId: world.id,
+        levelId: level.id,
+        worldName: app.worldTitle(world),
+        author: communityAuthor,
+        moves: state.moves,
+        pushes: state.pushes,
+        seconds,
+        score,
+        stars: starCount,
+      });
+    }
+
     const isLast = isDaily || levelIndex === world.levels.length - 1;
     isLast ? sfx.worldWin() : sfx.win();
 
@@ -333,6 +350,25 @@ export function gameScreen(app, { worldId, levelIndex }) {
     );
 
     const streak = isDaily ? computeStreak(recordsFor(app.save, DAILY_WORLD_ID)) : 0;
+
+    const leaderboardHost = communityServerUrl ? el('div.leaderboard') : null;
+    if (leaderboardHost) {
+      fetchLevelLeaderboard(communityServerUrl, world.id, level.id).then((result) => {
+        if (!result.ok || !result.data.length) return;
+        leaderboardHost.replaceChildren(
+          el('div.section-title', { style: { margin: '14px 0 8px' } }, t('leaderboard_title')),
+          ...result.data.slice(0, 5).map((entry, rank) =>
+            el(
+              'div.leaderboard-row',
+              { class: entry.author === communityAuthor ? 'me' : '' },
+              el('span.leaderboard-rank', {}, `#${rank + 1}`),
+              el('span.leaderboard-name', {}, entry.author),
+              el('span.leaderboard-score', {}, String(entry.score)),
+            ),
+          ),
+        );
+      });
+    }
 
     element.append(
       el(
@@ -362,6 +398,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
                 ),
               )
             : null,
+          leaderboardHost,
           actions,
         ),
       ),

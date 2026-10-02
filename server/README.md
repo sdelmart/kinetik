@@ -112,8 +112,12 @@ desktop n'a pas de restriction CORS à configurer).
 - **Débit limité** : 30 publications / 15 min et 120 lectures / min par IP,
   pour qu'un serveur exposé sur internet ne puisse pas être spammé.
 - Ce que ce serveur **ne fait pas** : synchroniser les profils/progressions
-  (volontairement, pour cette première version — seuls les secteurs custom
-  sont partagés).
+  (volontairement, pour cette première version — seuls les secteurs custom et
+  les scores du classement sont partagés).
+- **Le classement suit le même modèle de confiance** que la publication :
+  n'importe quel jeton valide peut soumettre un score sous n'importe quel nom
+  d'auteur. Dans un petit groupe de confiance c'est le principe de l'honneur,
+  pas une vraie barrière de sécurité.
 
 ## API
 
@@ -125,3 +129,6 @@ desktop n'a pas de restriction CORS à configurer).
 | POST | `/api/levels` | Publie un secteur (`{ token, author, name, world }`) |
 | PUT | `/api/levels/:id` | Met à jour un secteur (même jeton que la publication) |
 | DELETE | `/api/levels/:id` | Supprime un secteur (même jeton que la publication) |
+| POST | `/api/scores` | Soumet un score (`{ token, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }`), seulement s'il améliore le meilleur score existant de cet auteur sur ce niveau |
+| GET | `/api/scores/:worldId/:levelId` | Classement d'un niveau, trié par score décroissant |
+| GET | `/api/scores/:worldId` | Classement agrégé d'un secteur (score total, niveaux terminés par joueur) |

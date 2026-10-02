@@ -25,6 +25,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
 const DATA_DIR = resolve(here, process.env.DATA_DIR ?? './data');
 const DATA_FILE = resolve(DATA_DIR, 'levels.json');
+const SCORES_FILE = resolve(DATA_DIR, 'scores.json');
+const MAX_SCORES = 20000;
 const PUBLISH_TOKENS = new Set(
   (process.env.PUBLISH_TOKENS ?? '')
     .split(',')
@@ -45,21 +47,26 @@ if (PUBLISH_TOKENS.size === 0) {
   );
 }
 
-function loadStore() {
-  if (!existsSync(DATA_FILE)) return [];
+function loadJson(file) {
+  if (!existsSync(file)) return [];
   try {
-    const raw = JSON.parse(readFileSync(DATA_FILE, 'utf8'));
+    const raw = JSON.parse(readFileSync(file, 'utf8'));
     return Array.isArray(raw) ? raw : [];
   } catch {
-    console.error(`[kinetik-server] ${DATA_FILE} is corrupt, starting empty. The old file was left in place.`);
+    console.error(`[kinetik-server] ${file} is corrupt, starting empty. The old file was left in place.`);
     return [];
   }
 }
 
-function saveStore(store) {
+function saveJson(file, data) {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  writeFileSync(file, JSON.stringify(data, null, 2));
 }
+
+const loadStore = () => loadJson(DATA_FILE);
+const saveStore = (store) => saveJson(DATA_FILE, store);
+const loadScores = () => loadJson(SCORES_FILE);
+const saveScores = (scores) => saveJson(SCORES_FILE, scores);
 
 const tokenHash = (token) => createHash('sha256').update(token).digest('hex');
 
@@ -182,6 +189,96 @@ app.delete('/api/levels/:id', writeLimiter, (req, res) => {
 
   saveStore(store.filter((e) => e.id !== entry.id));
   res.status(204).end();
+});
+
+// --- leaderboard: best score per (world, level, author) ------------------
+//
+// Same trust model as publishing: any valid token can submit a score under
+// any author name, since there's no account system. For a small group this
+// is the honour system, not a security boundary — the token just keeps the
+// endpoint from being open to the whole internet.
+
+function validateScorePayload(body) {
+  const { worldId, levelId, author, moves, pushes, seconds, score, stars } = body ?? {};
+  if (typeof worldId !== 'string' || !worldId.trim() || worldId.length > 80) return 'invalid_world';
+  if (typeof levelId !== 'string' || !levelId.trim() || levelId.length > 80) return 'invalid_level';
+  if (typeof author !== 'string' || !author.trim()) return 'invalid_author';
+  for (const [key, value] of Object.entries({ moves, pushes, seconds, score })) {
+    if (!Number.isFinite(value) || value < 0) return `invalid_${key}`;
+  }
+  if (!Number.isInteger(stars) || stars < 0 || stars > 3) return 'invalid_stars';
+  return null;
+}
+
+app.post('/api/scores', writeLimiter, (req, res) => {
+  const { token } = req.body ?? {};
+  if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+  const problem = validateScorePayload(req.body);
+  if (problem) return res.status(400).json({ error: problem });
+
+  const { worldId, levelId, worldName, author, moves, pushes, seconds, score, stars } = req.body;
+  const trimmedAuthor = author.trim().slice(0, 40);
+  const scores = loadScores();
+  const existing = scores.find(
+    (s) => s.worldId === worldId && s.levelId === levelId && s.author === trimmedAuthor,
+  );
+
+  if (existing) {
+    const improved = score > existing.score;
+    if (improved) {
+      Object.assign(existing, { moves, pushes, seconds, score, stars, achievedAt: new Date().toISOString() });
+      saveScores(scores);
+    }
+    return res.json({ ok: true, best: improved });
+  }
+
+  if (scores.length >= MAX_SCORES) return res.status(507).json({ error: 'storage_full' });
+  scores.push({
+    worldId,
+    levelId,
+    worldName: typeof worldName === 'string' ? worldName.slice(0, 80) : null,
+    author: trimmedAuthor,
+    moves,
+    pushes,
+    seconds,
+    score,
+    stars,
+    achievedAt: new Date().toISOString(),
+  });
+  saveScores(scores);
+  res.status(201).json({ ok: true, best: true });
+});
+
+app.get('/api/scores/:worldId/:levelId', readLimiter, (req, res) => {
+  const scores = loadScores()
+    .filter((s) => s.worldId === req.params.worldId && s.levelId === req.params.levelId)
+    .sort((a, b) => b.score - a.score)
+    .map(({ author, moves, pushes, seconds, score, stars, achievedAt }) => ({
+      author,
+      moves,
+      pushes,
+      seconds,
+      score,
+      stars,
+      achievedAt,
+    }));
+  res.json(scores);
+});
+
+app.get('/api/scores/:worldId', readLimiter, (req, res) => {
+  const levelScores = loadScores().filter((s) => s.worldId === req.params.worldId);
+  const byAuthor = new Map();
+  for (const s of levelScores) {
+    const row = byAuthor.get(s.author) ?? { author: s.author, totalScore: 0, levelsCleared: 0, bestStars: 0 };
+    row.totalScore += s.score;
+    row.levelsCleared += 1;
+    row.bestStars += s.stars;
+    byAuthor.set(s.author, row);
+  }
+  const ranking = [...byAuthor.values()].sort((a, b) => b.totalScore - a.totalScore);
+  res.json({ worldName: levelScores[0]?.worldName ?? null, ranking });
 });
 
 app.use((req, res) => res.status(404).json({ error: 'not_found' }));

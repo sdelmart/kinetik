@@ -869,6 +869,45 @@ input[type='checkbox'] {
   padding: 3px 0;
 }
 
+.leaderboard {
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 4px 0 18px;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+  font-family: var(--font-mono);
+}
+
+.leaderboard-row.me {
+  color: var(--accent);
+}
+
+.leaderboard-rank {
+  color: var(--text-faint);
+  width: 2em;
+}
+
+.leaderboard-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .stat-tiles {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   margin-bottom: 20px;
