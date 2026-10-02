@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ACHIEVEMENTS, evaluateAchievements } from '../src/core/achievements.js';
+import { BUILTIN_WORLDS } from '../src/core/worlds.js';
 
 const baseCtx = {
   levelsCompleted: 0,
@@ -51,16 +52,14 @@ describe('evaluateAchievements', () => {
   });
 
   it('unlocks campaign_complete only once every sector is', () => {
+    const allIds = BUILTIN_WORLDS.map((w) => w.id);
     const almost = evaluateAchievements(
-      { ...baseCtx, sectorsComplete: ['assembly', 'foundry', 'cryo', 'reactor'] },
+      { ...baseCtx, sectorsComplete: allIds.slice(0, -1) },
       [],
     );
     expect(almost.newly).not.toContain('campaign_complete');
 
-    const all = evaluateAchievements(
-      { ...baseCtx, sectorsComplete: ['assembly', 'foundry', 'cryo', 'reactor', 'core'] },
-      [],
-    );
+    const all = evaluateAchievements({ ...baseCtx, sectorsComplete: allIds }, []);
     expect(all.newly).toContain('campaign_complete');
   });
 

@@ -236,9 +236,92 @@ export function drawTile(ctx, tile, x, y, size, theme) {
       break;
     }
 
+    case T.ONEWAY_UP:
+    case T.ONEWAY_RIGHT:
+    case T.ONEWAY_DOWN:
+    case T.ONEWAY_LEFT: {
+      drawOneWay(ctx, tile, x, y, size, theme);
+      break;
+    }
+
+    case T.KEYHOLE: {
+      drawPlainFloor(ctx, x, y, size);
+      drawKeyholeGlyph(ctx, x, y, size, PALETTE.amber, glow, 0.85);
+      break;
+    }
+
+    case T.KEYHOLE_USED: {
+      drawPlainFloor(ctx, x, y, size);
+      drawKeyholeGlyph(ctx, x, y, size, positiveColor(theme.colorblind), glow, 0.3);
+      break;
+    }
+
+    case T.GATE_KEY: {
+      const open = theme.keyGateOpen;
+      drawPlainFloor(ctx, x, y, size);
+      const color = open ? positiveColor(theme.colorblind) : PALETTE.amber;
+      ctx.lineWidth = Math.max(1.5, size * 0.05);
+      glowStroke(ctx, color, size * 0.16, glow);
+      const inset = open ? size * 0.38 : size * 0.1;
+      for (const dir of [-1, 1]) {
+        const cx = x + size / 2 + dir * inset;
+        ctx.beginPath();
+        ctx.moveTo(cx, y + size * 0.12);
+        ctx.lineTo(cx, y + size * 0.88);
+        ctx.stroke();
+      }
+      clearGlow(ctx);
+      break;
+    }
+
     default:
       drawPlainFloor(ctx, x, y, size);
   }
+}
+
+/** A keyhole: a ring + notch, filled once a crate has seated it. */
+function drawKeyholeGlyph(ctx, x, y, size, color, glow, alpha) {
+  const cx = x + size / 2;
+  const cy = y + size * 0.42;
+  ctx.lineWidth = Math.max(1.5, size * 0.045);
+  glowStroke(ctx, color, size * 0.14, glow);
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.12, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + size * 0.1);
+  ctx.lineTo(cx, cy + size * 0.28);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  clearGlow(ctx);
+}
+
+function drawOneWay(ctx, tile, x, y, size, theme) {
+  drawPlainFloor(ctx, x, y, size);
+  const angle = {
+    [T.ONEWAY_UP]: -Math.PI / 2,
+    [T.ONEWAY_RIGHT]: 0,
+    [T.ONEWAY_DOWN]: Math.PI / 2,
+    [T.ONEWAY_LEFT]: Math.PI,
+  }[tile];
+
+  ctx.save();
+  ctx.translate(x + size / 2, y + size / 2);
+  ctx.rotate(angle);
+  ctx.lineWidth = Math.max(1.5, size * 0.05);
+  glowStroke(ctx, theme.accent, size * 0.16, theme.glow);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const offset of [-size * 0.16, size * 0.1]) {
+    ctx.beginPath();
+    ctx.moveTo(offset - size * 0.14, -size * 0.18);
+    ctx.lineTo(offset + size * 0.1, 0);
+    ctx.lineTo(offset - size * 0.14, size * 0.18);
+    ctx.stroke();
+  }
+  clearGlow(ctx);
+  ctx.restore();
 }
 
 function drawPlainFloor(ctx, x, y, size) {
@@ -284,12 +367,13 @@ function drawConveyor(ctx, tile, x, y, size, theme) {
   ctx.restore();
 }
 
-export function drawCrate(ctx, x, y, size, { lit, glow, accent, colorblind }) {
+export function drawCrate(ctx, x, y, size, { lit, glow, accent, colorblind, twin }) {
   const pad = size * 0.11;
   const w = size - pad * 2;
   const litEdge = positiveColor(colorblind);
   const body = lit ? positiveLitBody(colorblind) : PALETTE.crate;
-  const edge = lit ? litEdge : PALETTE.crateEdge;
+  const twinEdge = twin === 'b' ? PALETTE.ice : PALETTE.magenta;
+  const edge = lit ? litEdge : twin ? twinEdge : PALETTE.crateEdge;
 
   ctx.fillStyle = body;
   roundRect(ctx, x + pad, y + pad, w, w, size * 0.1);
@@ -301,7 +385,7 @@ export function drawCrate(ctx, x, y, size, { lit, glow, accent, colorblind }) {
   clearGlow(ctx);
 
   // corrugation
-  ctx.strokeStyle = lit ? `${litEdge}59` : 'rgba(201,139,60,0.3)';
+  ctx.strokeStyle = lit ? `${litEdge}59` : twin ? `${twinEdge}4d` : 'rgba(201,139,60,0.3)';
   ctx.lineWidth = Math.max(1, size * 0.022);
   for (let i = 1; i <= 2; i++) {
     const cx = x + pad + (w / 3) * i;
@@ -312,7 +396,7 @@ export function drawCrate(ctx, x, y, size, { lit, glow, accent, colorblind }) {
   }
 
   // status light
-  ctx.fillStyle = lit ? litEdge : accent;
+  ctx.fillStyle = lit ? litEdge : twin ? twinEdge : accent;
   ctx.beginPath();
   ctx.arc(x + size / 2, y + pad + size * 0.12, size * 0.045, 0, Math.PI * 2);
   ctx.fill();

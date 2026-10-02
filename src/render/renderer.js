@@ -1,5 +1,5 @@
 import { T, DIRS } from '../core/constants.js';
-import { gatesOpen } from '../core/state.js';
+import { gatesOpen, keyGatesOpen } from '../core/state.js';
 import { drawTile, drawCrate, drawDrone, PALETTE } from './sprites.js';
 
 const MOVE_MS = 115;
@@ -175,6 +175,8 @@ export class BoardRenderer {
         this.shake = 6;
       } else if (event.type === 'teleport') {
         this.burst(event.to, PALETTE.magenta, 14);
+      } else if (event.type === 'key') {
+        this.burst(event.index, PALETTE.amber, 18);
       }
     }
   }
@@ -274,12 +276,14 @@ export class BoardRenderer {
     ctx.translate(originX, originY);
 
     const open = gatesOpen(state);
+    const keyOpen = keyGatesOpen(state);
     const theme = {
       accent: this.options.accent,
       glow: this.options.glow,
       colorblind: this.options.colorblind,
       time,
       gateOpen: open,
+      keyGateOpen: keyOpen,
     };
 
     for (let y = 0; y < state.height; y++) {
@@ -312,11 +316,16 @@ export class BoardRenderer {
         x: index % state.width,
         y: Math.floor(index / state.width),
       };
+      let twin = null;
+      if (state.twins.has(index)) {
+        twin = index < state.twins.get(index) ? 'a' : 'b';
+      }
       drawCrate(ctx, pos.x * tile, pos.y * tile, tile, {
         lit: state.terrain[index] === T.TARGET,
         glow: this.options.glow,
         accent: this.options.accent,
         colorblind: this.options.colorblind,
+        twin,
       });
     }
 

@@ -30,12 +30,23 @@ const TERRAIN_TOOLS = [
   ['tele_b', T.TELE_B],
   ['switch', T.SWITCH],
   ['gate', T.GATE],
+  ['oneway_up', T.ONEWAY_UP],
+  ['oneway_right', T.ONEWAY_RIGHT],
+  ['oneway_down', T.ONEWAY_DOWN],
+  ['oneway_left', T.ONEWAY_LEFT],
+  ['keyhole', T.KEYHOLE],
+  ['keygate', T.GATE_KEY],
 ];
 
 const ENTITY_TOOLS = [
   ['player', E.PLAYER],
   ['crate', E.CRATE],
+  ['twin_a', E.CRATE_A],
+  ['twin_b', E.CRATE_B],
 ];
+
+const SINGLETON_TERRAIN = new Set([T.TELE_A, T.TELE_B]);
+const SINGLETON_ENTITY = new Set([E.CRATE_A, E.CRATE_B]);
 
 export function editorScreen(app) {
   const element = el('div.screen');
@@ -234,8 +245,8 @@ export function editorScreen(app) {
         if (tool.value === T.WALL) entityGrid[y][x] = E.NONE;
         changed = true;
       }
-      // Teleporters and the drone are unique: placing one clears the previous.
-      if (tool.value === T.TELE_A || tool.value === T.TELE_B) {
+      // Teleporters are unique: placing one clears the previous.
+      if (SINGLETON_TERRAIN.has(tool.value)) {
         forEachCell((cx, cy) => {
           if ((cx !== x || cy !== y) && terrainGrid[cy][cx] === tool.value) {
             terrainGrid[cy][cx] = T.FLOOR;
@@ -244,9 +255,12 @@ export function editorScreen(app) {
       }
     } else if (tool.kind === 'entity') {
       if (terrainGrid[y][x] === T.WALL) return false;
-      if (tool.value === E.PLAYER) {
+      // The drone and each twin crate are unique: placing one clears the previous.
+      if (tool.value === E.PLAYER || SINGLETON_ENTITY.has(tool.value)) {
         forEachCell((cx, cy) => {
-          if (entityGrid[cy][cx] === E.PLAYER) entityGrid[cy][cx] = E.NONE;
+          if ((cx !== x || cy !== y) && entityGrid[cy][cx] === tool.value) {
+            entityGrid[cy][cx] = E.NONE;
+          }
         });
       }
       if (entityGrid[y][x] !== tool.value) {
@@ -437,7 +451,8 @@ export function editorScreen(app) {
         if (value === E.PLAYER) {
           drawDrone(ctx, 0, 0, size, { facing: 'down', glow: false, accent: '#00e5ff', time: 0 });
         } else {
-          drawCrate(ctx, 0, 0, size, { lit: false, glow: false, accent: '#00e5ff' });
+          const twin = value === E.CRATE_A ? 'a' : value === E.CRATE_B ? 'b' : null;
+          drawCrate(ctx, 0, 0, size, { lit: false, glow: false, accent: '#00e5ff', twin });
         }
       } else if (kind === 'eraser') {
         drawTile(ctx, T.FLOOR, 0, 0, size, theme);

@@ -16,8 +16,8 @@ const solutionFor = (level) => {
 };
 
 describe('campaign', () => {
-  it('ships five sectors of ten levels', () => {
-    expect(BUILTIN_WORLDS).toHaveLength(5);
+  it('ships eight sectors of ten levels', () => {
+    expect(BUILTIN_WORLDS).toHaveLength(8);
     for (const world of BUILTIN_WORLDS) expect(world.levels).toHaveLength(10);
   });
 
