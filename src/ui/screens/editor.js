@@ -433,6 +433,7 @@ export function editorScreen(app) {
       status.textContent = '';
       saveBtn.disabled = true;
       testBtn.disabled = true;
+      publishBtn.disabled = true;
       return;
     }
     renderer.setState(pseudoState(), { animate: false });
@@ -443,10 +444,12 @@ export function editorScreen(app) {
     status.textContent = check.ok ? t('editor_valid') : t(`error.${check.code}`);
     saveBtn.disabled = !check.ok;
     testBtn.disabled = !check.ok;
+    publishBtn.disabled = !check.ok || dirty;
   }
 
   const saveBtn = button(t('save_level'), () => {
     commitLevel();
+    refreshBoard();
     sfx.click();
     toast(t('save_level'));
     for (const id of app.checkAchievements()) {
@@ -458,6 +461,11 @@ export function editorScreen(app) {
     commitLevel();
     app.go('game', { worldId: world.id, levelIndex });
   });
+
+  // Publishing reads straight from `world.levels`, which only reflects what
+  // commitLevel() last wrote — so this stays disabled while there's an
+  // unsaved edit, instead of silently shipping stale level data.
+  const publishBtn = button(t('community_publish'), publishToCommunity, { variant: 'ghost' });
 
   function toolSwatch(id, kind, value) {
     return tileSwatch((ctx, size) => {
@@ -544,7 +552,6 @@ export function editorScreen(app) {
         { style: { display: 'flex', gap: '6px', marginTop: '8px' } },
         button(t('export_world'), exportWorld, { variant: 'icon ghost' }),
         button(t('import_world'), importWorld, { variant: 'icon ghost' }),
-        button(t('community_publish'), publishToCommunity, { variant: 'icon ghost' }),
       ),
     );
 
@@ -695,6 +702,7 @@ export function editorScreen(app) {
       t('editor_title'),
       saveBtn,
       testBtn,
+      publishBtn,
       button(t('back'), () => {
         if (dirty) commitLevel();
         app.go('menu');
