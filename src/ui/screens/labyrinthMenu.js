@@ -1,9 +1,46 @@
 import { el, button, topbar } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { CHAPTERS } from '../../labyrinth/campaign.js';
-import { loadLabyrinthSave, isChapterUnlocked } from '../../state/labyrinthSave.js';
+import {
+  loadLabyrinthSave,
+  isChapterUnlocked,
+  isLabyrinthUnlocked,
+  labyrinthSectorsCleared,
+  labyrinthUnlockRequirement,
+} from '../../state/labyrinthSave.js';
 
 export function labyrinthMenuScreen(app) {
+  if (!isLabyrinthUnlocked(app)) {
+    const element = el(
+      'div.screen',
+      {},
+      topbar(t('lab.title'), button(t('back'), () => app.go('menu'), { variant: 'ghost' })),
+      el(
+        'div.content',
+        {},
+        el(
+          'div.wrap',
+          {},
+          el(
+            'div.card',
+            {},
+            el('h3', {}, `🔒 ${t('lab.title')}`),
+            el(
+              'div.sub',
+              {},
+              t('lab.locked_requirement', {
+                cleared: labyrinthSectorsCleared(app),
+                required: labyrinthUnlockRequirement(),
+              }),
+            ),
+            button(t('lab.go_sokoban'), () => app.go('worlds')),
+          ),
+        ),
+      ),
+    );
+    return { element };
+  }
+
   const save = loadLabyrinthSave(app.key('labyrinth'));
 
   const grid = el('div.grid');

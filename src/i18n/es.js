@@ -310,4 +310,6 @@ export default {
   'lab.chapter_cleared': 'Capítulo completado',
   'lab.next_chapter': 'Siguiente capítulo',
   'lab.campaign_done': 'Volver al menú',
+  'lab.locked_requirement': 'Completa {required} sectores de Sokoban para desbloquear el Laberinto ({cleared}/{required}).',
+  'lab.go_sokoban': 'Volver a Sokoban',
 };

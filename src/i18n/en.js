@@ -310,4 +310,6 @@ export default {
   'lab.chapter_cleared': 'Chapter complete',
   'lab.next_chapter': 'Next chapter',
   'lab.campaign_done': 'Back to menu',
+  'lab.locked_requirement': 'Clear {required} Sokoban sectors to unlock the Labyrinth ({cleared}/{required}).',
+  'lab.go_sokoban': 'Back to Sokoban',
 };

@@ -1,12 +1,18 @@
-import { el, button, confirmDialog } from '../components.js';
+import { el, button, confirmDialog, toast } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { formatTime } from '../../core/score.js';
 import { computeStreak, todayKey, DAILY_WORLD_ID } from '../../core/daily.js';
 import { recordsFor } from '../../state/save.js';
 import { isNativeApp, quitApp } from '../platform.js';
+import {
+  isLabyrinthUnlocked,
+  labyrinthSectorsCleared,
+  labyrinthUnlockRequirement,
+} from '../../state/labyrinthSave.js';
 
 export function menuScreen(app) {
   const started = app.save.totals.runs > 0;
+  const labUnlocked = isLabyrinthUnlocked(app);
 
   const muteButton = button(app.settings.muted ? t('unmute') : t('mute'), () => {
     const muted = app.toggleMute();
@@ -46,7 +52,20 @@ export function menuScreen(app) {
             variant: 'primary big',
           }),
           dailyButton,
-          button(`🏰 ${t('lab.title')}`, () => app.go('labyrinthMenu')),
+          button(
+            labUnlocked ? `🏰 ${t('lab.title')}` : `🔒 ${t('lab.title')}`,
+            () => {
+              if (labUnlocked) app.go('labyrinthMenu');
+              else {
+                toast(
+                  t('lab.locked_requirement', {
+                    cleared: labyrinthSectorsCleared(app),
+                    required: labyrinthUnlockRequirement(),
+                  }),
+                );
+              }
+            },
+          ),
           button(t('editor'), () => app.go('editor')),
           button(t('statistics'), () => app.go('statistics')),
           button(t('achievements'), () => app.go('achievements')),

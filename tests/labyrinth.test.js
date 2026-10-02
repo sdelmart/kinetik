@@ -4,6 +4,12 @@ import { mulberry32 } from '../src/labyrinth/rng.js';
 import { createRun, step, resolveLock, blockingAt, isAtExit, endlessSpec } from '../src/labyrinth/state.js';
 import { CHAPTERS, findChapter, nextChapter } from '../src/labyrinth/campaign.js';
 import { QUESTIONS, CATEGORIES, questionsByCategory, questionsByDifficulty } from '../src/labyrinth/questions.js';
+import { BUILTIN_WORLDS } from '../src/core/worlds.js';
+import {
+  isLabyrinthUnlocked,
+  labyrinthSectorsCleared,
+  labyrinthUnlockRequirement,
+} from '../src/state/labyrinthSave.js';
 
 function reachableCount(cells, width, height) {
   const idx = (x, y) => y * width + x;
@@ -181,5 +187,33 @@ describe('question bank', () => {
     const easy = questionsByDifficulty(1);
     expect(easy.every((q) => q.difficulty === 1)).toBe(true);
     expect(easy.length).toBeGreaterThan(0);
+  });
+});
+
+function saveWithSectorsCleared(count) {
+  const records = {};
+  for (const world of BUILTIN_WORLDS.slice(0, count)) {
+    records[world.id] = {};
+    for (const level of world.levels) records[world.id][level.id] = { completed: true };
+  }
+  return { records, totals: {} };
+}
+
+describe('labyrinth unlock gate', () => {
+  it('requires half the Sokoban sectors cleared', () => {
+    expect(labyrinthUnlockRequirement()).toBe(Math.ceil(BUILTIN_WORLDS.length / 2));
+  });
+
+  it('stays locked below the requirement', () => {
+    const required = labyrinthUnlockRequirement();
+    const app = { save: saveWithSectorsCleared(required - 1), customWorlds: [] };
+    expect(labyrinthSectorsCleared(app)).toBe(required - 1);
+    expect(isLabyrinthUnlocked(app)).toBe(false);
+  });
+
+  it('unlocks once the requirement is met', () => {
+    const required = labyrinthUnlockRequirement();
+    const app = { save: saveWithSectorsCleared(required), customWorlds: [] };
+    expect(isLabyrinthUnlocked(app)).toBe(true);
   });
 });

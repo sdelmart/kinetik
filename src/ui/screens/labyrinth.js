@@ -9,14 +9,15 @@ import {
   persistLabyrinthSave,
   commitChapter,
   commitEndlessDepth,
+  isLabyrinthUnlocked,
 } from '../../state/labyrinthSave.js';
 import { shuffle, mulberry32 } from '../../labyrinth/rng.js';
 
 export function labyrinthScreen(app, params) {
   const isEndless = Boolean(params.endless);
   const chapter = isEndless ? null : findChapter(params.chapterId);
-  if (!isEndless && !chapter) {
-    // Unknown chapter id (e.g. a stale link) — bail out to the menu instead of crashing.
+  if ((!isEndless && !chapter) || !isLabyrinthUnlocked(app)) {
+    // Unknown chapter id, or a stale/direct link while still locked — bail to the menu.
     queueMicrotask(() => app.go('labyrinthMenu'));
     return { element: el('div.screen') };
   }

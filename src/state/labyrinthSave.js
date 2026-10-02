@@ -1,4 +1,21 @@
 import { read, write } from './storage.js';
+import { BUILTIN_WORLDS } from '../core/worlds.js';
+import { buildContext } from '../core/achievements.js';
+
+/** The Labyrinth stays locked until at least half the Sokoban sectors are cleared. */
+export const LABYRINTH_UNLOCK_RATIO = 0.5;
+
+export function labyrinthUnlockRequirement() {
+  return Math.ceil(BUILTIN_WORLDS.length * LABYRINTH_UNLOCK_RATIO);
+}
+
+export function labyrinthSectorsCleared(app) {
+  return buildContext(app).sectorsComplete.length;
+}
+
+export function isLabyrinthUnlocked(app) {
+  return labyrinthSectorsCleared(app) >= labyrinthUnlockRequirement();
+}
 
 const EMPTY = {
   chapters: {}, // id -> { completed: bool, bestMoves: number, bestSeconds: number }
