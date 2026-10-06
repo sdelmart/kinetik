@@ -351,4 +351,10 @@ export default {
   'lab.campaign_done': 'Zurück zum Menü',
   'lab.locked_requirement': 'Schließe {required} Sokoban-Sektoren ab, um das Labyrinth freizuschalten ({cleared}/{required}).',
   'lab.go_sokoban': 'Zurück zu Sokoban',
+  'lab.hint': 'Hinweis',
+  'lab.difficulty_label': 'Allgemeinwissen-Niveau',
+  'lab.difficulty_auto': 'Automatisch (Kapitelverlauf)',
+  'lab.difficulty_easy': 'Leicht',
+  'lab.difficulty_medium': 'Mittel',
+  'lab.difficulty_hard': 'Schwer',
 };

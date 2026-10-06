@@ -78,6 +78,17 @@ export function isAtExit(run) {
   return run.player.x === run.maze.exit.x && run.player.y === run.maze.exit.y;
 }
 
+const DIFFICULTY_CAPS = { easy: 1, medium: 2, hard: 3 };
+
+/**
+ * The player's chosen general-knowledge level (from Settings) overrides a
+ * chapter's or floor's own built-in difficulty cap outright — 'auto' is the
+ * only choice that keeps the automatic per-chapter/per-depth progression.
+ */
+export function resolveMaxDifficulty(preference, autoValue) {
+  return DIFFICULTY_CAPS[preference] ?? autoValue;
+}
+
 /** Difficulty scaling for endless mode: every 3 floors, the maze grows and hardens. */
 export function endlessSpec(depth, seed) {
   const tier = Math.floor(depth / 3);

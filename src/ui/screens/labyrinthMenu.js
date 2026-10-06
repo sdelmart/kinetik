@@ -1,6 +1,7 @@
 import { el, button, topbar } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { CHAPTERS } from '../../labyrinth/campaign.js';
+import { LABYRINTH_DIFFICULTIES } from '../../state/settings.js';
 import {
   loadLabyrinthSave,
   isChapterUnlocked,
@@ -42,6 +43,26 @@ export function labyrinthMenuScreen(app) {
   }
 
   const save = loadLabyrinthSave(app.key('labyrinth'));
+
+  const difficultySelect = el(
+    'select',
+    {
+      onchange: (event) => app.updateSettings({ labyrinthDifficulty: event.target.value }),
+    },
+    ...LABYRINTH_DIFFICULTIES.map((id) =>
+      el(
+        'option',
+        { value: id, selected: id === app.settings.labyrinthDifficulty },
+        t(`lab.difficulty_${id}`),
+      ),
+    ),
+  );
+  const difficultyRow = el(
+    'div.row',
+    {},
+    el('span.label', {}, t('lab.difficulty_label')),
+    difficultySelect,
+  );
 
   const grid = el('div.grid');
   CHAPTERS.forEach((chapter) => {
@@ -88,6 +109,7 @@ export function labyrinthMenuScreen(app) {
         'div.wrap',
         {},
         el('p.sub', {}, t('lab.intro')),
+        difficultyRow,
         el('div.section-title', {}, t('lab.campaign')),
         grid,
         el('div.section-title', {}, t('lab.endless')),

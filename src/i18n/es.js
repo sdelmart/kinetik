@@ -351,4 +351,10 @@ export default {
   'lab.campaign_done': 'Volver al menú',
   'lab.locked_requirement': 'Completa {required} sectores de Sokoban para desbloquear el Laberinto ({cleared}/{required}).',
   'lab.go_sokoban': 'Volver a Sokoban',
+  'lab.hint': 'Pista',
+  'lab.difficulty_label': 'Nivel de cultura general',
+  'lab.difficulty_auto': 'Auto (progresión del capítulo)',
+  'lab.difficulty_easy': 'Fácil',
+  'lab.difficulty_medium': 'Medio',
+  'lab.difficulty_hard': 'Difícil',
 };

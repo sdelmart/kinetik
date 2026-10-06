@@ -41,7 +41,11 @@ export const DEFAULT_SETTINGS = {
   communityServerUrl: '',
   communityToken: '',
   communityAuthor: '',
+  labyrinthDifficulty: 'auto',
 };
+
+/** 'auto' keeps each chapter's/floor's own built-in progression. */
+export const LABYRINTH_DIFFICULTIES = ['auto', 'easy', 'medium', 'hard'];
 
 /** 0 means "no cap": render as fast as the display refreshes. */
 export const FPS_OPTIONS = [30, 60, 120, 0];
@@ -85,6 +89,9 @@ export function normalizeSettings(raw) {
     communityServerUrl: typeof input.communityServerUrl === 'string' ? input.communityServerUrl.trim() : '',
     communityToken: typeof input.communityToken === 'string' ? input.communityToken.trim() : '',
     communityAuthor: typeof input.communityAuthor === 'string' ? input.communityAuthor.trim().slice(0, 40) : '',
+    labyrinthDifficulty: LABYRINTH_DIFFICULTIES.includes(input.labyrinthDifficulty)
+      ? input.labyrinthDifficulty
+      : DEFAULT_SETTINGS.labyrinthDifficulty,
   };
 }
 

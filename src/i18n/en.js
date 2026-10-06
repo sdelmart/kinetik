@@ -351,4 +351,10 @@ export default {
   'lab.campaign_done': 'Back to menu',
   'lab.locked_requirement': 'Clear {required} Sokoban sectors to unlock the Labyrinth ({cleared}/{required}).',
   'lab.go_sokoban': 'Back to Sokoban',
+  'lab.hint': 'Hint',
+  'lab.difficulty_label': 'General knowledge level',
+  'lab.difficulty_auto': 'Auto (chapter progression)',
+  'lab.difficulty_easy': 'Easy',
+  'lab.difficulty_medium': 'Medium',
+  'lab.difficulty_hard': 'Hard',
 };

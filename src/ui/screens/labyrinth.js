@@ -2,7 +2,15 @@ import { el, button, topbar, toast, stat } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { actionForKey } from '../../state/settings.js';
 import { findChapter, nextChapter } from '../../labyrinth/campaign.js';
-import { createRun, step, resolveLock, blockingAt, isAtExit, endlessSpec } from '../../labyrinth/state.js';
+import {
+  createRun,
+  step,
+  resolveLock,
+  blockingAt,
+  isAtExit,
+  endlessSpec,
+  resolveMaxDifficulty,
+} from '../../labyrinth/state.js';
 import { drawMaze } from '../../labyrinth/render.js';
 import {
   loadLabyrinthSave,
@@ -24,10 +32,16 @@ export function labyrinthScreen(app, params) {
 
   let depth = 0;
   const endlessSeed = Date.now() & 0xffffffff;
-  let run = createRun(isEndless ? endlessSpec(depth, endlessSeed) : chapter);
+
+  function specFor(baseSpec) {
+    return { ...baseSpec, maxDifficulty: resolveMaxDifficulty(app.settings.labyrinthDifficulty, baseSpec.maxDifficulty) };
+  }
+
+  let run = createRun(specFor(isEndless ? endlessSpec(depth, endlessSeed) : chapter));
   let startedAt = Date.now();
   let pendingLock = null;
   let lastAttemptedDir = null;
+  let eliminated = [];
 
   const canvas = el('canvas');
   const boardHost = el('div.board-host', {}, canvas);
@@ -35,7 +49,8 @@ export function labyrinthScreen(app, params) {
   const modalHost = el('div');
   const movesStat = stat(t('lab.moves'), '0');
   const depthStat = isEndless ? stat(t('lab.depth'), '1') : null;
-  const hud = el('div.hud', {}, movesStat, depthStat);
+  const hintStat = stat(`💡 ${t('hint_tokens')}`, String(app.hintTokens));
+  const hud = el('div.hud', {}, movesStat, depthStat, hintStat);
   const main = el('div.editor-main', {}, boardHost, status, modalHost);
 
   let frame = null;
@@ -61,19 +76,40 @@ export function labyrinthScreen(app, params) {
     frame = requestAnimationFrame(draw);
   }
 
+  let choiceOrder = [];
+
   function closeModal() {
     modalHost.replaceChildren();
     pendingLock = null;
+    eliminated = [];
   }
 
-  function openModal(lock) {
-    pendingLock = lock;
-    const order = shuffle(mulberry32(lock.question.id.length * 7 + run.moves), [0, 1, 2, 3]);
+  function useHint() {
+    if (!pendingLock || app.hintTokens <= 0) return;
+    const remaining = choiceOrder.filter((i) => !eliminated.includes(i));
+    if (remaining.length <= 2) return;
+    const wrongChoices = remaining.filter((i) => i !== pendingLock.question.answer);
+    const pick = wrongChoices[Math.floor(Math.random() * wrongChoices.length)];
+    eliminated = [...eliminated, pick];
+    app.setHintTokens(app.hintTokens - 1);
+    hintStat.querySelector('b').textContent = String(app.hintTokens);
+    renderModal();
+  }
+
+  function renderModal() {
+    const lock = pendingLock;
+    const visible = choiceOrder.filter((i) => !eliminated.includes(i));
     const actions = el('div.panel-actions');
-    for (const choiceIndex of order) {
+    for (const choiceIndex of visible) {
       actions.append(button(lock.question.choices[choiceIndex], () => answer(choiceIndex)));
     }
-    actions.append(button(t('cancel'), closeModal, { variant: 'ghost' }));
+
+    const canHint = app.hintTokens > 0 && visible.length > 2;
+    const hintBtn = button(`💡 ${t('lab.hint')} · ${app.hintTokens}`, useHint, { variant: 'ghost' });
+    hintBtn.disabled = !canHint;
+
+    const row = el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } }, hintBtn);
+    row.append(button(t('cancel'), closeModal, { variant: 'ghost' }));
 
     modalHost.replaceChildren(
       el(
@@ -85,9 +121,17 @@ export function labyrinthScreen(app, params) {
           el('h2', {}, lock.kind === 'secret' ? t('lab.secret_found') : t('lab.gate_locked')),
           el('p', { style: { color: 'var(--text-dim)', marginBottom: '16px' } }, lock.question.prompt),
           actions,
+          row,
         ),
       ),
     );
+  }
+
+  function openModal(lock) {
+    pendingLock = lock;
+    eliminated = [];
+    choiceOrder = shuffle(mulberry32(lock.question.id.length * 7 + run.moves), [0, 1, 2, 3]);
+    renderModal();
   }
 
   function answer(choiceIndex) {
@@ -126,7 +170,7 @@ export function labyrinthScreen(app, params) {
       persistLabyrinthSave(save, app.key('labyrinth'));
       toast(t('lab.floor_cleared', { depth: depth + 1 }));
       depth += 1;
-      run = createRun(endlessSpec(depth, endlessSeed));
+      run = createRun(specFor(endlessSpec(depth, endlessSeed)));
       startedAt = Date.now();
       depthStat.querySelector('b').textContent = String(depth + 1);
       movesStat.querySelector('b').textContent = '0';
