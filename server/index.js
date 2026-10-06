@@ -8,15 +8,18 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { validateLevel } from '../src/core/level.js';
+import { mergeSave, mergeAchievements, mergeLabyrinth, finite } from './merge.js';
 
 /**
- * A small self-hosted server for sharing KINETIK custom sectors. Reads are
+ * A small self-hosted server for sharing KINETIK custom sectors, a
+ * leaderboard, and cross-device profile progress. Reads of sectors/scores are
  * open (the point is friction-free browsing for the family/friends it's
- * shared with); publishing requires one of the tokens in PUBLISH_TOKENS, and
- * that same token is the only thing that can later edit or delete the sector
- * it published — there's no account system, just "whoever holds this token".
+ * shared with); every write (publishing, scoring, syncing) requires one of
+ * the tokens in PUBLISH_TOKENS, and for sectors that same token is the only
+ * thing that can later edit or delete what it published — there's no account
+ * system, just "whoever holds this token".
  *
- * Storage is a single JSON file, not a database: at the scale this is built
+ * Storage is plain JSON files, not a database: at the scale this is built
  * for (a handful of people sharing sectors), that's simpler to run, back up,
  * and reason about than standing up Postgres/SQLite for a few hundred rows.
  */
@@ -26,7 +29,9 @@ const PORT = Number(process.env.PORT ?? 8787);
 const DATA_DIR = resolve(here, process.env.DATA_DIR ?? './data');
 const DATA_FILE = resolve(DATA_DIR, 'levels.json');
 const SCORES_FILE = resolve(DATA_DIR, 'scores.json');
+const PROFILES_FILE = resolve(DATA_DIR, 'profiles.json');
 const MAX_SCORES = 20000;
+const MAX_PROFILES = 1000;
 const PUBLISH_TOKENS = new Set(
   (process.env.PUBLISH_TOKENS ?? '')
     .split(',')
@@ -67,6 +72,18 @@ const loadStore = () => loadJson(DATA_FILE);
 const saveStore = (store) => saveJson(DATA_FILE, store);
 const loadScores = () => loadJson(SCORES_FILE);
 const saveScores = (scores) => saveJson(SCORES_FILE, scores);
+
+function loadProfiles() {
+  if (!existsSync(PROFILES_FILE)) return {};
+  try {
+    const raw = JSON.parse(readFileSync(PROFILES_FILE, 'utf8'));
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    console.error(`[kinetik-server] ${PROFILES_FILE} is corrupt, starting empty. The old file was left in place.`);
+    return {};
+  }
+}
+const saveProfiles = (profiles) => saveJson(PROFILES_FILE, profiles);
 
 const tokenHash = (token) => createHash('sha256').update(token).digest('hex');
 
@@ -279,6 +296,47 @@ app.get('/api/scores/:worldId', readLimiter, (req, res) => {
   }
   const ranking = [...byAuthor.values()].sort((a, b) => b.totalScore - a.totalScore);
   res.json({ worldName: levelScores[0]?.worldName ?? null, ranking });
+});
+
+// --- profile sync: progression follows you between machines --------------
+//
+// Identified by profile *name*, not a device-local id (two installs of
+// KINETIK generate different random ids for "the same" profile) — so two
+// different people who happen to pick the same display name will collide.
+// Fine for a small trusted group, same caveat as the leaderboard's author
+// names. Every call merges the incoming state with whatever's already
+// stored and returns the merged result: numbers that only ever grow take
+// the max, per-level/per-chapter bests take whichever is actually better,
+// achievement lists union — so calling this from any device, in any order,
+// never loses progress made on another one.
+
+app.post('/api/profile/sync', writeLimiter, (req, res) => {
+  const { token, profileName, save, achievements, hintTokens, labyrinth } = req.body ?? {};
+  if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+  if (typeof profileName !== 'string' || !profileName.trim()) {
+    return res.status(400).json({ error: 'invalid_profile' });
+  }
+
+  const key = profileName.trim().slice(0, 40).toLowerCase();
+  const profiles = loadProfiles();
+  const existing = profiles[key];
+
+  if (!existing && Object.keys(profiles).length >= MAX_PROFILES) {
+    return res.status(507).json({ error: 'storage_full' });
+  }
+
+  const merged = {
+    save: mergeSave(existing?.save, save),
+    achievements: mergeAchievements(existing?.achievements, achievements),
+    hintTokens: Math.max(finite(existing?.hintTokens), finite(hintTokens)),
+    labyrinth: mergeLabyrinth(existing?.labyrinth, labyrinth),
+    updatedAt: new Date().toISOString(),
+  };
+  profiles[key] = merged;
+  saveProfiles(profiles);
+  res.json({ ok: true, ...merged });
 });
 
 app.use((req, res) => res.status(404).json({ error: 'not_found' }));

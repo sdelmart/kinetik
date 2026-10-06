@@ -168,6 +168,7 @@ export function labyrinthScreen(app, params) {
       let save = loadLabyrinthSave(app.key('labyrinth'));
       save = commitEndlessDepth(save, depth + 1);
       persistLabyrinthSave(save, app.key('labyrinth'));
+      app.syncProgress();
       toast(t('lab.floor_cleared', { depth: depth + 1 }));
       depth += 1;
       run = createRun(specFor(endlessSpec(depth, endlessSeed)));
@@ -179,6 +180,7 @@ export function labyrinthScreen(app, params) {
       let save = loadLabyrinthSave(app.key('labyrinth'));
       save = commitChapter(save, chapter.id, { moves: run.moves, seconds });
       persistLabyrinthSave(save, app.key('labyrinth'));
+      app.syncProgress();
       const next = nextChapter(chapter.id);
       status.replaceChildren(
         el(

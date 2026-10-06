@@ -388,6 +388,18 @@
   50% { opacity: 0.25; }
 }
 
+.new-badge {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  vertical-align: middle;
+  animation: vault-blink 1.6s ease-in-out infinite;
+}
+
 /* ---------- Home: secondary actions ---------- */
 
 .home-secondary {

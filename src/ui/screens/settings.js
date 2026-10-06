@@ -231,6 +231,17 @@ export function settingsScreen(app) {
     toast(result.ok ? t('community_test_ok', { count: result.data.worlds }) : t('community_test_fail'));
   }, { variant: 'ghost' });
 
+  const syncBtn = button(t('community_sync'), async () => {
+    syncBtn.disabled = true;
+    const result = await app.syncProgress();
+    syncBtn.disabled = false;
+    toast(
+      result.ok
+        ? t('community_sync_ok')
+        : t(result.error === 'not_configured' ? 'community_publish_missing_config' : 'community_sync_fail'),
+    );
+  }, { variant: 'ghost' });
+
   const content = el(
     'div.wrap',
     {},
@@ -240,7 +251,7 @@ export function settingsScreen(app) {
       row(t('community_url'), serverUrlInput),
       row(t('community_token'), tokenInput),
       row(t('community_author'), authorInput),
-      el('div.row', {}, el('span.label', {}, ''), testServerBtn),
+      el('div.row', {}, el('span.label', {}, ''), testServerBtn, syncBtn),
     ),
     group(
       t('controls'),

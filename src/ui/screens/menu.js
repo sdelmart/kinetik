@@ -13,6 +13,8 @@ import {
   loadLabyrinthSave,
 } from '../../state/labyrinthSave.js';
 import { CHAPTERS } from '../../labyrinth/campaign.js';
+import { listCommunityWorlds } from '../../state/community.js';
+import { read } from '../../state/storage.js';
 
 function sokobanIcon() {
   const ns = 'http://www.w3.org/2000/svg';
@@ -85,11 +87,21 @@ export function menuScreen(app) {
     { variant: 'ghost' },
   );
 
+  const communityBadge = el('span.new-badge', { hidden: true, title: t('community_new_levels') });
+  if (app.settings.communityServerUrl) {
+    listCommunityWorlds(app.settings.communityServerUrl).then((result) => {
+      if (!result.ok || !result.data.length) return;
+      const latest = Math.max(...result.data.map((w) => Date.parse(w.updatedAt ?? w.createdAt) || 0));
+      const seenAt = read(app.key('communitySeenAt'), 0);
+      if (latest > seenAt) communityBadge.hidden = false;
+    });
+  }
+
   const sokobanCard = el(
     'button.portal-card.sokoban',
     { type: 'button', onclick: () => app.go('worlds') },
     sokobanIcon(),
-    el('h2', {}, t('home.sokoban_title')),
+    el('h2', {}, t('home.sokoban_title'), communityBadge),
     el('p.sub', {}, t('home.sokoban_tagline')),
     el(
       'div.bar',

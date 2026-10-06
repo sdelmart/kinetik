@@ -316,6 +316,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
     if (earned > 0) app.setHintTokens(app.hintTokens + earned);
 
     const newlyUnlocked = app.checkAchievements();
+    app.syncProgress();
 
     const { communityServerUrl, communityToken, communityAuthor } = app.settings;
     if (communityServerUrl && communityToken && communityAuthor) {

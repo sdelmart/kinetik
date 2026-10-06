@@ -4,6 +4,7 @@ import { summarizeWorld } from '../../core/score.js';
 import { recordsFor, isWorldUnlocked } from '../../state/save.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
 import { listCommunityWorlds, fetchCommunityWorld, deleteCommunityWorld } from '../../state/community.js';
+import { write } from '../../state/storage.js';
 
 export function worldsScreen(app) {
   const content = el('div.wrap');
@@ -82,6 +83,11 @@ export function worldsScreen(app) {
       showCommunityMessage(t('community_empty'));
       return;
     }
+
+    // Seeing this list is what the home screen's "new sector" badge means by
+    // "seen" — so browsing here is what clears it, not just loading the menu.
+    const latest = Math.max(...result.data.map((w) => Date.parse(w.updatedAt ?? w.createdAt) || 0));
+    write(app.key('communitySeenAt'), latest);
 
     const grid = el('div.grid');
     for (const summary of result.data) {

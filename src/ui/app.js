@@ -17,6 +17,8 @@ import { STARTING_TOKENS } from '../core/hints.js';
 import { dailyWorld, DAILY_WORLD_ID } from '../core/daily.js';
 import { buildContext, evaluateAchievements } from '../core/achievements.js';
 import { loadUnlockedAchievements, persistUnlockedAchievements } from '../state/achievements.js';
+import { loadLabyrinthSave, persistLabyrinthSave } from '../state/labyrinthSave.js';
+import { syncProfile } from '../state/profileSync.js';
 import { read, write } from '../state/storage.js';
 import { setLanguage, t } from '../i18n/index.js';
 import { setMusicVolume, setSfxVolume, setMuted, unlock } from '../audio/engine.js';
@@ -100,6 +102,10 @@ export class App {
     this.applyDisplaySettings();
     this.applyAudioSettings();
     this.background?.start();
+
+    // Best-effort: pulls in whatever progress another device may have pushed
+    // since last time. Never blocks loading the profile on it.
+    this.syncProgress();
   }
 
   readHintTokens() {
@@ -152,6 +158,47 @@ export class App {
       persistUnlockedAchievements(unlocked, this.key('achievements'));
     }
     return newly;
+  }
+
+  /**
+   * Pushes this profile's progress to the community server and applies
+   * whatever comes back (the merge of what was sent with whatever another
+   * device already pushed) — see src/state/profileSync.js. Safe to call
+   * anytime a server/token are configured; a no-op otherwise.
+   */
+  async syncProgress() {
+    const { communityServerUrl, communityToken } = this.settings;
+    if (!communityServerUrl || !communityToken || !this.profile) {
+      return { ok: false, error: 'not_configured' };
+    }
+
+    const labyrinth = loadLabyrinthSave(this.key('labyrinth'));
+    const result = await syncProfile(communityServerUrl, {
+      token: communityToken,
+      profileName: this.profile.name,
+      save: this.save,
+      achievements: this.achievements,
+      hintTokens: this.hintTokens,
+      labyrinth,
+    });
+    if (!result.ok) return result;
+
+    const changed =
+      JSON.stringify(this.save) !== JSON.stringify(result.data.save) ||
+      JSON.stringify(this.achievements) !== JSON.stringify(result.data.achievements) ||
+      this.hintTokens !== result.data.hintTokens ||
+      JSON.stringify(labyrinth) !== JSON.stringify(result.data.labyrinth);
+
+    this.save = result.data.save;
+    persistSave(this.save, this.key('save'));
+    this.achievements = result.data.achievements;
+    persistUnlockedAchievements(this.achievements, this.key('achievements'));
+    this.setHintTokens(result.data.hintTokens);
+    persistLabyrinthSave(result.data.labyrinth, this.key('labyrinth'));
+
+    const disruptiveToRefresh = ['game', 'labyrinth', 'intro'];
+    if (changed && !disruptiveToRefresh.includes(this.route?.name)) this.refresh();
+    return result;
   }
 
   // --- persistence ---

@@ -111,13 +111,15 @@ desktop n'a pas de restriction CORS à configurer).
   appairés, etc.) avant d'être accepté.
 - **Débit limité** : 30 publications / 15 min et 120 lectures / min par IP,
   pour qu'un serveur exposé sur internet ne puisse pas être spammé.
-- Ce que ce serveur **ne fait pas** : synchroniser les profils/progressions
-  (volontairement, pour cette première version — seuls les secteurs custom et
-  les scores du classement sont partagés).
 - **Le classement suit le même modèle de confiance** que la publication :
   n'importe quel jeton valide peut soumettre un score sous n'importe quel nom
   d'auteur. Dans un petit groupe de confiance c'est le principe de l'honneur,
   pas une vraie barrière de sécurité.
+- **La synchro de profil est identifiée par nom de profil**, pas par un id
+  propre à chaque appareil — donc deux personnes différentes qui choisissent
+  le même nom de profil verront leurs progressions fusionnées ensemble. Même
+  compromis que les noms d'auteur du classement : acceptable dans un petit
+  groupe de confiance où tout le monde choisit un nom distinct.
 
 ## API
 
@@ -132,3 +134,4 @@ desktop n'a pas de restriction CORS à configurer).
 | POST | `/api/scores` | Soumet un score (`{ token, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }`), seulement s'il améliore le meilleur score existant de cet auteur sur ce niveau |
 | GET | `/api/scores/:worldId/:levelId` | Classement d'un niveau, trié par score décroissant |
 | GET | `/api/scores/:worldId` | Classement agrégé d'un secteur (score total, niveaux terminés par joueur) |
+| POST | `/api/profile/sync` | Synchronise la progression d'un profil (`{ token, profileName, save, achievements, hintTokens, labyrinth }`) ; fusionne avec ce qui est déjà stocké pour ce nom de profil (le meilleur des deux côtés champ par champ) et renvoie l'état fusionné — à utiliser aussi bien pour envoyer que pour récupérer la progression |
