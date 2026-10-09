@@ -6,6 +6,7 @@ import {
   publishCommunityWorld,
   updateCommunityWorld,
   deleteCommunityWorld,
+  reportCommunityWorld,
 } from '../src/state/community.js';
 
 describe('community client', () => {
@@ -67,6 +68,16 @@ describe('community client', () => {
     globalThis.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     const result = await deleteCommunityWorld('https://example.com', 'abc', 'token');
     expect(result).toEqual({ ok: true, data: null });
+  });
+
+  it('posts a report with no token required', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 201 }));
+    const result = await reportCommunityWorld('https://example.com', 'abc123', 'broken level');
+    expect(result).toEqual({ ok: true, data: { ok: true } });
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://example.com/api/levels/abc123/report',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ reason: 'broken level' }) }),
+    );
   });
 
   it('sends the expected method and body for fetchCommunityWorld / updateCommunityWorld', async () => {

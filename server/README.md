@@ -12,7 +12,7 @@ jeton par personne.
 
 ```bash
 # depuis ta machine, en remplaçant user@ton-serveur
-rsync -av --exclude node_modules --exclude data server/ user@ton-serveur:~/kinetik-server/
+rsync -av --exclude node_modules --exclude data --exclude backups server/ user@ton-serveur:~/kinetik-server/
 ```
 
 ### 2. Installer Node.js (si pas déjà fait) et les dépendances
@@ -65,7 +65,33 @@ sudo systemctl status kinetik-server
 
 Remplace `TON_UTILISATEUR` par ton nom d'utilisateur Unix sur le serveur.
 
-### 5. Exposer en HTTPS (accès depuis l'extérieur)
+### 5. Sauvegardes et surveillance
+
+Tout l'état qui compte (secteurs publiés, classement, profils, signalements)
+vit dans `data/`, un simple dossier de fichiers JSON — rien de tout ça n'est
+reproductible si le disque lâche. `scripts/backup.sh` archive ce dossier en
+`.tar.gz` horodatés et ne garde que les 14 derniers (réglable avec `KEEP=`).
+
+```bash
+# ajoute à `crontab -e` sur le serveur : sauvegarde chaque nuit à 3h
+0 3 * * * /home/TON_UTILISATEUR/kinetik-server/scripts/backup.sh >> /home/TON_UTILISATEUR/kinetik-server/backup.log 2>&1
+```
+
+Pense à copier `backups/` ailleurs que sur la même machine de temps en temps
+(rsync vers un autre disque, un NAS, etc.) — une sauvegarde qui ne quitte
+jamais le serveur qu'elle sauvegarde ne protège pas contre une panne disque.
+
+`scripts/healthcheck.sh` ping `/api/health` et journalise le résultat dans
+`healthcheck.log` ; avec `SYSLOG=1` il pousse aussi les échecs dans le journal
+système (repris par la plupart des configurations de `cron` qui envoient un
+mail sur erreur) :
+
+```bash
+# toutes les 5 minutes
+*/5 * * * * SYSLOG=1 /home/TON_UTILISATEUR/kinetik-server/scripts/healthcheck.sh
+```
+
+### 6. Exposer en HTTPS (accès depuis l'extérieur)
 
 Comme ce sera accessible depuis internet, il faut du HTTPS devant — le plus
 simple est [Caddy](https://caddyserver.com/), qui obtient et renouvelle le
@@ -135,3 +161,5 @@ desktop n'a pas de restriction CORS à configurer).
 | GET | `/api/scores/:worldId/:levelId` | Classement d'un niveau, trié par score décroissant |
 | GET | `/api/scores/:worldId` | Classement agrégé d'un secteur (score total, niveaux terminés par joueur) |
 | POST | `/api/profile/sync` | Synchronise la progression d'un profil (`{ token, profileName, save, achievements, hintTokens, labyrinth }`) ; fusionne avec ce qui est déjà stocké pour ce nom de profil (le meilleur des deux côtés champ par champ) et renvoie l'état fusionné — à utiliser aussi bien pour envoyer que pour récupérer la progression |
+| POST | `/api/levels/:id/report` | Signale un secteur comme problématique (`{ reason }`, optionnel) — aucun jeton requis, ouvert à qui navigue le serveur, limité à 10 requêtes/heure/IP |
+| GET | `/api/reports?token=...` | Liste les signalements reçus (réservé aux détenteurs d'un jeton) |

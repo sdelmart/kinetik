@@ -3,6 +3,7 @@ import { t } from '../../i18n/index.js';
 import { formatTime } from '../../core/score.js';
 import { recordsFor, isLevelUnlocked } from '../../state/save.js';
 import { fetchWorldLeaderboard } from '../../state/leaderboard.js';
+import { authorColor, authorInitial } from '../authorColor.js';
 
 export function levelsScreen(app, { worldId }) {
   const world = app.findWorld(worldId);
@@ -42,6 +43,7 @@ export function levelsScreen(app, { worldId }) {
           'div.leaderboard-row',
           { class: row.author === app.settings.communityAuthor ? 'me' : '' },
           el('span.leaderboard-rank', {}, `#${rank + 1}`),
+          el('span.author-avatar', { style: { background: authorColor(row.author) } }, authorInitial(row.author)),
           el('span.leaderboard-name', {}, row.author),
           el('span.leaderboard-score', {}, String(row.totalScore)),
         ),

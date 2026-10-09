@@ -27,6 +27,8 @@ export const ACHIEVEMENTS = [
   { id: 'daily_streak_30', check: (ctx) => ctx.dailyStreak >= 30 },
   { id: 'builder', check: (ctx) => ctx.customLevelCount >= 1 },
   { id: 'score_hunter', check: (ctx) => ctx.totalScore >= 20000 },
+  { id: 'community_publisher', check: (ctx) => Boolean(ctx.hasPublishedCommunity) },
+  { id: 'community_synced', check: (ctx) => Boolean(ctx.hasSyncedProfile) },
 ];
 
 const ACHIEVEMENT_IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
@@ -36,7 +38,7 @@ const ACHIEVEMENT_IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
  * — no dependency on the storage layer, so this stays testable and reusable
  * from anywhere that already has a `save` object in hand.
  */
-export function buildContext({ save, customWorlds }) {
+export function buildContext({ save, customWorlds, hasPublishedCommunity, hasSyncedProfile }) {
   const sectorsComplete = BUILTIN_WORLDS.filter((world) =>
     world.levels.every((level) => save.records[world.id]?.[level.id]?.completed),
   ).map((w) => w.id);
@@ -62,6 +64,8 @@ export function buildContext({ save, customWorlds }) {
     dailyStreak: computeStreak(dailyRecords),
     dailyLongestStreak: computeLongestStreak(dailyRecords),
     customLevelCount: (customWorlds ?? []).reduce((n, w) => n + w.levels.length, 0),
+    hasPublishedCommunity: Boolean(hasPublishedCommunity),
+    hasSyncedProfile: Boolean(hasSyncedProfile),
   };
 }
 

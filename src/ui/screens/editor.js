@@ -389,6 +389,7 @@ export function editorScreen(app) {
     if (result.ok) {
       sfx.click();
       toast(t('community_publish_success'));
+      app.markCommunityPublished();
     } else {
       sfx.error();
       toast(t('community_publish_fail', { error: result.error }));

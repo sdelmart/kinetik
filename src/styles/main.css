@@ -903,6 +903,19 @@ input[type='checkbox'] {
   white-space: nowrap;
 }
 
+.author-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #0a0d14;
+}
+
 .leaderboard-score {
   font-weight: 700;
   font-variant-numeric: tabular-nums;

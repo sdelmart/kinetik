@@ -97,6 +97,8 @@ export class App {
     this.customWorlds = loadCustomWorlds(this.key('worlds'));
     this.hintTokens = this.readHintTokens();
     this.achievements = loadUnlockedAchievements(this.key('achievements'));
+    this.hasPublishedCommunity = read(this.key('hasPublishedCommunity'), false);
+    this.hasSyncedProfile = read(this.key('hasSyncedProfile'), false);
 
     setLanguage(this.settings.language);
     this.applyDisplaySettings();
@@ -160,6 +162,14 @@ export class App {
     return newly;
   }
 
+  /** Flags this profile as having published to the community server at least once — unlocks an achievement. */
+  markCommunityPublished() {
+    if (this.hasPublishedCommunity) return;
+    this.hasPublishedCommunity = true;
+    write(this.key('hasPublishedCommunity'), true);
+    this.checkAchievements();
+  }
+
   /**
    * Pushes this profile's progress to the community server and applies
    * whatever comes back (the merge of what was sent with whatever another
@@ -183,6 +193,11 @@ export class App {
     });
     if (!result.ok) return result;
 
+    if (!this.hasSyncedProfile) {
+      this.hasSyncedProfile = true;
+      write(this.key('hasSyncedProfile'), true);
+    }
+
     const changed =
       JSON.stringify(this.save) !== JSON.stringify(result.data.save) ||
       JSON.stringify(this.achievements) !== JSON.stringify(result.data.achievements) ||
@@ -195,6 +210,7 @@ export class App {
     persistUnlockedAchievements(this.achievements, this.key('achievements'));
     this.setHintTokens(result.data.hintTokens);
     persistLabyrinthSave(result.data.labyrinth, this.key('labyrinth'));
+    this.checkAchievements();
 
     const disruptiveToRefresh = ['game', 'labyrinth', 'intro'];
     if (changed && !disruptiveToRefresh.includes(this.route?.name)) this.refresh();

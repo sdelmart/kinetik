@@ -68,3 +68,10 @@ export function deleteCommunityWorld(serverUrl, id, token) {
     body: JSON.stringify({ token }),
   });
 }
+
+export function reportCommunityWorld(serverUrl, id, reason) {
+  return request(serverUrl, `/api/levels/${encodeURIComponent(id)}/report`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}

@@ -9,6 +9,8 @@ src-tauri/target/
 src-tauri/gen/
 downloads/
 
-# Community server: local secrets and the runtime level store
+# Community server: local secrets, the runtime level store, and backups/logs
 server/.env
 server/data/
+server/backups/
+server/healthcheck.log

@@ -30,8 +30,10 @@ const DATA_DIR = resolve(here, process.env.DATA_DIR ?? './data');
 const DATA_FILE = resolve(DATA_DIR, 'levels.json');
 const SCORES_FILE = resolve(DATA_DIR, 'scores.json');
 const PROFILES_FILE = resolve(DATA_DIR, 'profiles.json');
+const REPORTS_FILE = resolve(DATA_DIR, 'reports.json');
 const MAX_SCORES = 20000;
 const MAX_PROFILES = 1000;
+const MAX_REPORTS = 2000;
 const PUBLISH_TOKENS = new Set(
   (process.env.PUBLISH_TOKENS ?? '')
     .split(',')
@@ -72,6 +74,8 @@ const loadStore = () => loadJson(DATA_FILE);
 const saveStore = (store) => saveJson(DATA_FILE, store);
 const loadScores = () => loadJson(SCORES_FILE);
 const saveScores = (scores) => saveJson(SCORES_FILE, scores);
+const loadReports = () => loadJson(REPORTS_FILE);
+const saveReports = (reports) => saveJson(REPORTS_FILE, reports);
 
 function loadProfiles() {
   if (!existsSync(PROFILES_FILE)) return {};
@@ -110,6 +114,10 @@ app.use(
 
 const writeLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 const readLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
+// Reporting needs no token (anyone browsing should be able to flag a broken
+// sector), so it's the one write path open to the whole internet — kept
+// tight to stop it being used to spam the data file.
+const reportLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
 
 function summarize(entry) {
   return {
@@ -206,6 +214,40 @@ app.delete('/api/levels/:id', writeLimiter, (req, res) => {
 
   saveStore(store.filter((e) => e.id !== entry.id));
   res.status(204).end();
+});
+
+// No token required — this is the one write path open to anyone browsing,
+// so you don't have to be a publisher yourself to flag a broken sector.
+app.post('/api/levels/:id/report', reportLimiter, (req, res) => {
+  const store = loadStore();
+  const entry = store.find((e) => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'not_found' });
+
+  const { reason } = req.body ?? {};
+  const trimmedReason = typeof reason === 'string' ? reason.trim().slice(0, 300) : '';
+
+  const reports = loadReports();
+  if (reports.length >= MAX_REPORTS) return res.status(507).json({ error: 'storage_full' });
+
+  reports.push({
+    id: randomUUID(),
+    levelId: entry.id,
+    levelName: entry.name,
+    reason: trimmedReason || null,
+    createdAt: new Date().toISOString(),
+  });
+  saveReports(reports);
+  res.status(201).json({ ok: true });
+});
+
+// Reading reports needs a valid token — it's not sensitive within the trusted
+// group, but there's no reason to expose it to the whole internet either.
+app.get('/api/reports', readLimiter, (req, res) => {
+  const token = req.query.token;
+  if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+  res.json(loadReports());
 });
 
 // --- leaderboard: best score per (world, level, author) ------------------

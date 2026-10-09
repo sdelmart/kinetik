@@ -3,8 +3,14 @@ import { t } from '../../i18n/index.js';
 import { summarizeWorld } from '../../core/score.js';
 import { recordsFor, isWorldUnlocked } from '../../state/save.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
-import { listCommunityWorlds, fetchCommunityWorld, deleteCommunityWorld } from '../../state/community.js';
+import {
+  listCommunityWorlds,
+  fetchCommunityWorld,
+  deleteCommunityWorld,
+  reportCommunityWorld,
+} from '../../state/community.js';
 import { write } from '../../state/storage.js';
+import { authorColor, authorInitial } from '../authorColor.js';
 
 export function worldsScreen(app) {
   const content = el('div.wrap');
@@ -60,9 +66,37 @@ export function worldsScreen(app) {
 
   // --- community sectors: fetched fresh from the configured server --------
 
-  content.append(el('div.section-title', {}, t('community_section_title')));
+  const communitySection = el(
+    'div',
+    { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' } },
+    el('div.section-title', { style: { margin: 0 } }, t('community_section_title')),
+  );
+  content.append(communitySection);
   const communityHost = el('div');
   content.append(communityHost);
+
+  let communityWorlds = [];
+  let sortMode = 'recent';
+
+  const sortSelect = el(
+    'select',
+    {
+      onchange: (event) => {
+        sortMode = event.target.value;
+        renderCommunityGrid();
+      },
+    },
+    el('option', { value: 'recent' }, t('community_sort_recent')),
+    el('option', { value: 'name' }, t('community_sort_name')),
+  );
+
+  function sortedWorlds() {
+    const copy = [...communityWorlds];
+    if (sortMode === 'name') return copy.sort((a, b) => a.name.localeCompare(b.name));
+    return copy.sort(
+      (a, b) => (Date.parse(b.updatedAt ?? b.createdAt) || 0) - (Date.parse(a.updatedAt ?? a.createdAt) || 0),
+    );
+  }
 
   function showCommunityMessage(message) {
     communityHost.replaceChildren(el('div.empty', {}, message));
@@ -89,8 +123,14 @@ export function worldsScreen(app) {
     const latest = Math.max(...result.data.map((w) => Date.parse(w.updatedAt ?? w.createdAt) || 0));
     write(app.key('communitySeenAt'), latest);
 
+    communityWorlds = result.data;
+    if (!sortSelect.isConnected) communitySection.append(sortSelect);
+    renderCommunityGrid();
+  }
+
+  function renderCommunityGrid() {
     const grid = el('div.grid');
-    for (const summary of result.data) {
+    for (const summary of sortedWorlds()) {
       const playBtn = button(t('play'), async () => {
         playBtn.disabled = true;
         const full = await fetchCommunityWorld(app.settings.communityServerUrl, summary.id);
@@ -147,12 +187,30 @@ export function worldsScreen(app) {
           ),
         );
       }
+      actions.append(
+        button(
+          t('community_report'),
+          async () => {
+            if (!(await confirmDialog(element, t('community_report_confirm', { name: summary.name })))) {
+              return;
+            }
+            const result = await reportCommunityWorld(app.settings.communityServerUrl, summary.id);
+            toast(result.ok ? t('community_report_success') : t('community_report_fail'));
+          },
+          { variant: 'ghost' },
+        ),
+      );
 
       const card = el(
         'div.card',
         { style: { '--card-accent': summary.accent ?? 'var(--accent)', cursor: 'default' } },
         el('h3', {}, summary.name),
-        el('div.sub', {}, t('community_by', { author: summary.author })),
+        el(
+          'div.sub',
+          { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+          el('span.author-avatar', { style: { background: authorColor(summary.author) } }, authorInitial(summary.author)),
+          t('community_by', { author: summary.author }),
+        ),
         el('div.sub', {}, `${summary.levelCount} ${t('level').toLowerCase()}`),
         actions,
       );
