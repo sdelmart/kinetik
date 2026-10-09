@@ -33,7 +33,7 @@ export function playersScreen(app) {
       return;
     }
 
-    const me = (app.profile?.name ?? '').trim().toLowerCase();
+    const me = app.communityName().toLowerCase();
     body.replaceChildren(
       el(
         'div.players-row.players-head',

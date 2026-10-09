@@ -12,7 +12,8 @@ import { isValidHex } from '../../core/color.js';
 import { MUSIC_TRACKS, playTrack, stopMusic } from '../../audio/music.js';
 import { BACKGROUNDS } from '../../render/background.js';
 import { sfx } from '../../audio/sfx.js';
-import { checkCommunityServer } from '../../state/community.js';
+import { checkCommunityServer, whoAmI } from '../../state/community.js';
+import { read, remove, write } from '../../state/storage.js';
 
 export function settingsScreen(app) {
   const element = el('div.screen');
@@ -214,21 +215,40 @@ export function settingsScreen(app) {
     'https://kinetik.exemple.com',
     (v) => app.updateSettings({ communityServerUrl: v }),
   );
+  // Who this key belongs to, as the server knows it — that's the name shown
+  // on every leaderboard, so it replaces the old free-text display name.
+  const playerKey = app.key('communityPlayer');
+  const identity = el('span', {}, read(playerKey, null) ?? t('community_player_unknown'));
+  const showIdentity = (name) => {
+    identity.textContent = name ?? t('community_player_unknown');
+  };
+
   const tokenInput = textInput(
     app.settings.communityToken,
     t('community_token_placeholder'),
-    (v) => app.updateSettings({ communityToken: v }),
+    (v) => {
+      app.updateSettings({ communityToken: v });
+      remove(playerKey);
+      showIdentity(null);
+    },
     'password',
-  );
-  const authorInput = textInput(
-    app.settings.communityAuthor,
-    t('community_author_placeholder'),
-    (v) => app.updateSettings({ communityAuthor: v }),
   );
 
   const testServerBtn = button(t('community_test'), async () => {
-    const result = await checkCommunityServer(app.settings.communityServerUrl);
-    toast(result.ok ? t('community_test_ok', { count: result.data.worlds }) : t('community_test_fail'));
+    const health = await checkCommunityServer(app.settings.communityServerUrl);
+    if (!health.ok) {
+      toast(t('community_test_fail'));
+      return;
+    }
+    const me = await whoAmI(app.settings.communityServerUrl, app.settings.communityToken);
+    if (!me.ok) {
+      showIdentity(null);
+      toast(t('community_token_rejected'));
+      return;
+    }
+    write(playerKey, me.data.name);
+    showIdentity(me.data.name);
+    toast(t('community_test_ok_as', { name: me.data.name, count: health.data.worlds }));
   }, { variant: 'ghost' });
 
   const syncBtn = button(t('community_sync'), async () => {
@@ -250,7 +270,7 @@ export function settingsScreen(app) {
       el('div.row', {}, el('span.label', { style: { color: 'var(--text-faint)', fontSize: '0.8rem' } }, t('community_hint'))),
       row(t('community_url'), serverUrlInput),
       row(t('community_token'), tokenInput),
-      row(t('community_author'), authorInput),
+      row(t('community_player'), identity),
       el('div.row', {}, el('span.label', {}, ''), testServerBtn, syncBtn),
     ),
     group(

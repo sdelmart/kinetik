@@ -21,6 +21,8 @@ import { loadLabyrinthSave, persistLabyrinthSave } from '../state/labyrinthSave.
 import { syncProfile } from '../state/profileSync.js';
 import { submitScores } from '../state/leaderboard.js';
 import { read, write } from '../state/storage.js';
+import { SEASON } from '../state/season.js';
+import { applySeasonReset } from '../state/seasonReset.js';
 import { setLanguage, t } from '../i18n/index.js';
 import { setMusicVolume, setSfxVolume, setMuted, unlock } from '../audio/engine.js';
 import { playTrack, stopMusic } from '../audio/music.js';
@@ -95,6 +97,7 @@ export class App {
   }
 
   loadProfileState() {
+    applySeasonReset((name) => this.key(name));
     this.settings = loadSettings(this.key('settings'));
     this.save = loadSave(this.key('save'));
     this.customWorlds = loadCustomWorlds(this.key('worlds'));
@@ -175,7 +178,7 @@ export class App {
 
   /** The name this profile appears under on the server: the chosen display name, else the profile name. */
   communityName() {
-    return (this.settings.communityAuthor || this.profile?.name || '').trim();
+    return (read(this.key('communityPlayer'), null) || this.settings.communityAuthor || this.profile?.name || '').trim();
   }
 
   /** Remembers which best score has already reached the server, so catch-up only sends what's new. */
@@ -236,6 +239,7 @@ export class App {
     const labyrinth = loadLabyrinthSave(this.key('labyrinth'));
     const result = await syncProfile(communityServerUrl, {
       token: communityToken,
+      season: SEASON,
       profileName: this.profile.name,
       save: this.save,
       achievements: this.achievements,
@@ -243,6 +247,11 @@ export class App {
       labyrinth,
     });
     if (!result.ok) return result;
+    // A server still on an older season would hand back the old progress the
+    // season reset just cleared — never apply that.
+    if (result.data.season !== SEASON) return { ok: false, error: 'server_outdated' };
+    // The server decides who this key belongs to; that's our name everywhere.
+    if (result.data.player) write(this.key('communityPlayer'), result.data.player);
 
     if (!this.hasSyncedProfile) {
       this.hasSyncedProfile = true;

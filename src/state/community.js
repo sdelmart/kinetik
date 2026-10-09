@@ -40,6 +40,11 @@ export function checkCommunityServer(serverUrl) {
   return request(serverUrl, '/api/health');
 }
 
+/** The player name a key belongs to on this server. */
+export function whoAmI(serverUrl, token) {
+  return request(serverUrl, '/api/whoami', { method: 'POST', body: JSON.stringify({ token }) });
+}
+
 export function listCommunityWorlds(serverUrl) {
   return request(serverUrl, '/api/levels');
 }

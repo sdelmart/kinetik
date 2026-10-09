@@ -5,6 +5,8 @@
  * unreachable server just means no leaderboard data, never a thrown error.
  */
 
+import { SEASON } from './season.js';
+
 function normalizeBase(url) {
   return url.replace(/\/+$/, '');
 }
@@ -35,7 +37,7 @@ async function request(serverUrl, path, options = {}) {
 export function submitScore(serverUrl, { token, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }) {
   return request(serverUrl, '/api/scores', {
     method: 'POST',
-    body: JSON.stringify({ token, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }),
+    body: JSON.stringify({ token, season: SEASON, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }),
   });
 }
 
@@ -51,7 +53,7 @@ export function fetchWorldLeaderboard(serverUrl, worldId) {
 export function submitScores(serverUrl, { token, author, scores }) {
   return request(serverUrl, '/api/scores/bulk', {
     method: 'POST',
-    body: JSON.stringify({ token, author, scores }),
+    body: JSON.stringify({ token, season: SEASON, author, scores }),
   });
 }
 

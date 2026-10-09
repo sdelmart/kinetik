@@ -33,10 +33,19 @@ cp .env.example .env
 nano .env
 ```
 
-Renseigne au minimum `PUBLISH_TOKENS` — un jeton par personne autorisée à
-publier, séparés par des virgules (ex. `scott-7f2k9,mathieu-x8a1z`). Chacun
-colle ensuite **son propre** jeton dans KINETIK (Réglages → Serveur
-communautaire).
+Renseigne au minimum `PUBLISH_TOKENS` : un couple `Nom:clé` par joueur,
+séparés par des virgules, par exemple `Scotty:7f2k9q1x8a1z,Anaïs:m3p0v6t2r9wd`.
+
+- Le **nom** est celui qui apparaît dans tous les classements, quel que soit
+  le nom tapé dans le jeu : personne ne peut jouer sous le nom d'un autre.
+- **Tous les joueurs listés apparaissent dans le classement**, même à 0 point
+  et avant d'avoir joué.
+- Chacun colle **uniquement sa propre clé** dans KINETIK (Réglages → Serveur
+  communautaire), et le bouton « Tester la connexion » affiche sous quel nom
+  il est reconnu.
+
+Une clé seule sans `Nom:` reste acceptée : le nom est alors la partie avant
+le premier tiret (`scotty-7f2k9` → `Scotty`).
 
 ### 4. Lancer en service (systemd)
 
@@ -146,6 +155,16 @@ kinetik-api.ton-domaine.fr {
 Teste l'autorisation avec `curl -i "http://127.0.0.1:9191/ask?domain=kinetik-api.ton-domaine.fr"`
 (adapte l'adresse à ton `ask`) : il faut un `200`.
 
+### Saisons (remise à zéro des classements)
+
+Les scores et la progression synchronisée sont rangés par **saison**
+(`data/scores-s2.json`, `data/profiles-s2.json`). Quand la campagne du jeu
+change, on passe à la saison suivante (constante `SEASON` dans `index.js` et
+dans `src/state/season.js` côté jeu) : tout le monde repart de zéro, les
+anciens fichiers restent sur le disque comme sauvegarde, et une version trop
+ancienne de l'app est refusée pour ne pas réinjecter d'anciens scores.
+Les secteurs publiés et les signalements ne sont pas concernés.
+
 ## Sécurité — ce que ce serveur fait et ne fait pas
 
 - **La lecture est publique** : quiconque connaît l'adresse peut lister et
@@ -161,15 +180,13 @@ Teste l'autorisation avec `curl -i "http://127.0.0.1:9191/ask?domain=kinetik-api
   appairés, etc.) avant d'être accepté.
 - **Débit limité** : 30 publications / 15 min et 120 lectures / min par IP,
   pour qu'un serveur exposé sur internet ne puisse pas être spammé.
-- **Le classement suit le même modèle de confiance** que la publication :
-  n'importe quel jeton valide peut soumettre un score sous n'importe quel nom
-  d'auteur. Dans un petit groupe de confiance c'est le principe de l'honneur,
-  pas une vraie barrière de sécurité.
-- **La synchro de profil est identifiée par nom de profil**, pas par un id
-  propre à chaque appareil — donc deux personnes différentes qui choisissent
-  le même nom de profil verront leurs progressions fusionnées ensemble. Même
-  compromis que les noms d'auteur du classement : acceptable dans un petit
-  groupe de confiance où tout le monde choisit un nom distinct.
+- **Chaque score et chaque progression sont rattachés au joueur de la clé**
+  utilisée : impossible de poster sous le nom de quelqu'un d'autre. Les
+  valeurs elles-mêmes (coups, temps) restent déclarées par l'app : principe
+  de l'honneur au sein du groupe.
+- **Les clés ne passent jamais dans une adresse** (où les logs de Caddy les
+  enregistreraient) : elles voyagent dans le corps des requêtes ou dans un
+  en-tête.
 
 ## API
 
@@ -181,9 +198,12 @@ Teste l'autorisation avec `curl -i "http://127.0.0.1:9191/ask?domain=kinetik-api
 | POST | `/api/levels` | Publie un secteur (`{ token, author, name, world }`) |
 | PUT | `/api/levels/:id` | Met à jour un secteur (même jeton que la publication) |
 | DELETE | `/api/levels/:id` | Supprime un secteur (même jeton que la publication) |
-| POST | `/api/scores` | Soumet un score (`{ token, worldId, levelId, worldName, author, moves, pushes, seconds, score, stars }`), seulement s'il améliore le meilleur score existant de cet auteur sur ce niveau |
+| POST | `/api/scores` | Soumet un score (`{ token, season, worldId, levelId, worldName, moves, pushes, seconds, score, stars }`), classé sous le joueur de la clé, seulement s'il améliore son meilleur score sur ce niveau |
 | GET | `/api/scores/:worldId/:levelId` | Classement d'un niveau, trié par score décroissant |
 | GET | `/api/scores/:worldId` | Classement agrégé d'un secteur (score total, niveaux terminés par joueur) |
-| POST | `/api/profile/sync` | Synchronise la progression d'un profil (`{ token, profileName, save, achievements, hintTokens, labyrinth }`) ; fusionne avec ce qui est déjà stocké pour ce nom de profil (le meilleur des deux côtés champ par champ) et renvoie l'état fusionné — à utiliser aussi bien pour envoyer que pour récupérer la progression |
+| POST | `/api/profile/sync` | Synchronise la progression du joueur de la clé (`{ token, season, save, achievements, hintTokens, labyrinth }`) ; fusionne avec ce qui est déjà stocké (le meilleur des deux côtés champ par champ) et renvoie l'état fusionné — à utiliser aussi bien pour envoyer que pour récupérer la progression |
 | POST | `/api/levels/:id/report` | Signale un secteur comme problématique (`{ reason }`, optionnel) — aucun jeton requis, ouvert à qui navigue le serveur, limité à 10 requêtes/heure/IP |
-| GET | `/api/reports?token=...` | Liste les signalements reçus (réservé aux détenteurs d'un jeton) |
+| GET | `/api/reports` | Liste les signalements reçus (clé dans l'en-tête `X-Kinetik-Token`) |
+| POST | `/api/whoami` | Nom du joueur auquel appartient une clé (`{ token }`) |
+| GET | `/api/players` | Classement général : tous les joueurs déclarés, même à 0 |
+| POST | `/api/scores/bulk` | Rattrapage de scores en lot (`{ token, season, scores }`) |

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { validateLevel } from '../src/core/level.js';
 import { mergeSave, mergeAchievements, mergeLabyrinth, finite } from './merge.js';
+import { parsePlayers } from './players.js';
 
 /**
  * A small self-hosted server for sharing KINETIK custom sectors, a
@@ -28,18 +29,31 @@ const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8787);
 const DATA_DIR = resolve(here, process.env.DATA_DIR ?? './data');
 const DATA_FILE = resolve(DATA_DIR, 'levels.json');
-const SCORES_FILE = resolve(DATA_DIR, 'scores.json');
-const PROFILES_FILE = resolve(DATA_DIR, 'profiles.json');
+/**
+ * Leaderboards and synced progress belong to a season. Bumping SEASON starts
+ * every ranking and every player's progress from zero (new files, the old ones
+ * stay on disk as a backup) — used when the campaign itself is replaced. Apps
+ * must send the same season, so an outdated app can't push old progress into
+ * the new one. Published sectors and reports are not seasonal.
+ */
+const SEASON = 2;
+const SCORES_FILE = resolve(DATA_DIR, `scores-s${SEASON}.json`);
+const PROFILES_FILE = resolve(DATA_DIR, `profiles-s${SEASON}.json`);
 const REPORTS_FILE = resolve(DATA_DIR, 'reports.json');
 const MAX_SCORES = 20000;
 const MAX_PROFILES = 1000;
 const MAX_REPORTS = 2000;
-const PUBLISH_TOKENS = new Set(
-  (process.env.PUBLISH_TOKENS ?? '')
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean),
-);
+const PLAYERS = parsePlayers(process.env.PUBLISH_TOKENS);
+const PUBLISH_TOKENS = PLAYERS;
+const playerFor = (token) => (typeof token === 'string' ? PLAYERS.get(token) ?? null : null);
+const playerKey = (name) => name.trim().toLowerCase();
+
+/** Rejects writes from an app built for another season. */
+function wrongSeason(req, res) {
+  if (req.body?.season === SEASON) return false;
+  res.status(409).json({ error: 'outdated_client', season: SEASON });
+  return true;
+}
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '*')
   .split(',')
   .map((o) => o.trim())
@@ -50,7 +64,7 @@ const MAX_WORLDS = 500;
 if (PUBLISH_TOKENS.size === 0) {
   console.warn(
     '[kinetik-server] PUBLISH_TOKENS is empty — nobody will be able to publish. ' +
-      'Set it in .env, e.g. PUBLISH_TOKENS=scott-abc123,mathieu-def456',
+      'Set it in .env, e.g. PUBLISH_TOKENS=Scotty:abc123,Anaïs:def456',
   );
 }
 
@@ -133,7 +147,7 @@ function summarize(entry) {
 
 app.get('/api/health', (req, res) => {
   const store = loadStore();
-  res.json({ ok: true, name: 'kinetik-community-server', worlds: store.length });
+  res.json({ ok: true, name: 'kinetik-community-server', worlds: store.length, season: SEASON });
 });
 
 app.get('/api/levels', readLimiter, (req, res) => {
@@ -149,7 +163,7 @@ app.get('/api/levels/:id', readLimiter, (req, res) => {
 });
 
 app.post('/api/levels', writeLimiter, (req, res) => {
-  const { token, author, name, world } = req.body ?? {};
+  const { token, name, world } = req.body ?? {};
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
     return res.status(401).json({ error: 'invalid_token' });
   }
@@ -164,7 +178,7 @@ app.post('/api/levels', writeLimiter, (req, res) => {
   const entry = {
     id: randomUUID(),
     name: payloadWorld.name,
-    author: typeof author === 'string' && author.trim() ? author.trim().slice(0, 40) : 'Anonyme',
+    author: playerFor(token),
     world: { id: payloadWorld.id ?? randomUUID(), accent: payloadWorld.accent, levels: payloadWorld.levels },
     ownerTokenHash: tokenHash(token),
     createdAt: new Date().toISOString(),
@@ -243,7 +257,8 @@ app.post('/api/levels/:id/report', reportLimiter, (req, res) => {
 // Reading reports needs a valid token — it's not sensitive within the trusted
 // group, but there's no reason to expose it to the whole internet either.
 app.get('/api/reports', readLimiter, (req, res) => {
-  const token = req.query.token;
+  // Header rather than ?token= so the key never lands in proxy access logs.
+  const token = req.get('x-kinetik-token');
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
     return res.status(401).json({ error: 'invalid_token' });
   }
@@ -252,10 +267,9 @@ app.get('/api/reports', readLimiter, (req, res) => {
 
 // --- leaderboard: best score per (world, level, author) ------------------
 //
-// Same trust model as publishing: any valid token can submit a score under
-// any author name, since there's no account system. For a small group this
-// is the honour system, not a security boundary — the token just keeps the
-// endpoint from being open to the whole internet.
+// A score is always filed under the player its key belongs to, so a player
+// can only ever post their own scores. The values themselves (moves, time)
+// are still the app's word for it — honour system within the group.
 
 function validateScorePayload(body) {
   const { worldId, levelId, author, moves, pushes, seconds, score, stars } = body ?? {};
@@ -302,11 +316,14 @@ app.post('/api/scores', writeLimiter, (req, res) => {
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
     return res.status(401).json({ error: 'invalid_token' });
   }
-  const problem = validateScorePayload(req.body);
+  if (wrongSeason(req, res)) return;
+  // The score is filed under the key's owner, never a name the app sends.
+  const entry = { ...req.body, author: playerFor(token) };
+  const problem = validateScorePayload(entry);
   if (problem) return res.status(400).json({ error: problem });
 
   const scores = loadScores();
-  const result = upsertScore(scores, req.body);
+  const result = upsertScore(scores, entry);
   if (result.full) return res.status(507).json({ error: 'storage_full' });
   if (result.stored) saveScores(scores);
   res.status(result.stored ? 201 : 200).json({ ok: true, best: result.stored });
@@ -317,11 +334,12 @@ const MAX_BULK_SCORES = 300;
 // Catches up scores a device couldn't send at the time (server down, offline
 // play): one request for many levels, so it doesn't eat the write rate limit.
 app.post('/api/scores/bulk', writeLimiter, (req, res) => {
-  const { token, author, scores: incoming } = req.body ?? {};
+  const { token, scores: incoming } = req.body ?? {};
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
     return res.status(401).json({ error: 'invalid_token' });
   }
-  if (typeof author !== 'string' || !author.trim()) return res.status(400).json({ error: 'invalid_author' });
+  if (wrongSeason(req, res)) return;
+  const author = playerFor(token);
   if (!Array.isArray(incoming) || incoming.length > MAX_BULK_SCORES) {
     return res.status(400).json({ error: 'invalid_scores' });
   }
@@ -373,20 +391,15 @@ app.get('/api/scores/:worldId', readLimiter, (req, res) => {
 
 // --- profile sync: progression follows you between machines --------------
 //
-// Identified by profile *name*, not a device-local id (two installs of
-// KINETIK generate different random ids for "the same" profile) — so two
-// different people who happen to pick the same display name will collide.
-// Fine for a small trusted group, same caveat as the leaderboard's author
-// names. Every call merges the incoming state with whatever's already
+// Identified by the player the key belongs to (see server/players.js), not
+// by a device-local profile, so it follows a person across machines. Every
+// call merges the incoming state with whatever's already
 // stored and returns the merged result: numbers that only ever grow take
 // the max, per-level/per-chapter bests take whichever is actually better,
 // achievement lists union — so calling this from any device, in any order,
 // never loses progress made on another one.
 
-/**
- * Everyone who has connected a profile to this server, best first — including
- * people with no score yet, so the group can see who's playing at all.
- */
+/** Overall standing of one player, from their synced progress (all zero if none yet). */
 const CAMPAIGN_LEVEL_ID = /^[a-z]+-v2-\d+$/;
 
 function summarizePlayer(key, profile) {
@@ -416,22 +429,37 @@ function summarizePlayer(key, profile) {
 }
 
 app.get('/api/players', readLimiter, (req, res) => {
-  const players = Object.entries(loadProfiles())
-    .map(([key, profile]) => summarizePlayer(key, profile))
-    .sort((a, b) => b.score - a.score || b.levelsCompleted - a.levelsCompleted);
+  const profiles = loadProfiles();
+  // Every player declared in PUBLISH_TOKENS is listed, even before they've
+  // played or connected — the group should see who's in, at 0 if need be.
+  const names = [...new Set(PLAYERS.values())];
+  const players = names
+    .map((name) => summarizePlayer(name, profiles[playerKey(name)] ?? {}))
+    .sort((a, b) => b.score - a.score || b.levelsCompleted - a.levelsCompleted || a.name.localeCompare(b.name));
   res.json(players);
 });
 
+/**
+ * Which player a key belongs to — lets the app show who it's connected as.
+ * POST so the key travels in the body, never in a URL that proxies log.
+ */
+app.post('/api/whoami', readLimiter, (req, res) => {
+  const name = playerFor(req.body?.token);
+  if (!name) return res.status(401).json({ error: 'invalid_token' });
+  res.json({ name, season: SEASON });
+});
+
 app.post('/api/profile/sync', writeLimiter, (req, res) => {
-  const { token, profileName, save, achievements, hintTokens, labyrinth } = req.body ?? {};
+  const { token, save, achievements, hintTokens, labyrinth } = req.body ?? {};
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
     return res.status(401).json({ error: 'invalid_token' });
   }
-  if (typeof profileName !== 'string' || !profileName.trim()) {
-    return res.status(400).json({ error: 'invalid_profile' });
-  }
+  if (wrongSeason(req, res)) return;
 
-  const key = profileName.trim().slice(0, 40).toLowerCase();
+  // Progress belongs to the key's owner, so it follows them across devices
+  // whatever the local profile happens to be called.
+  const player = playerFor(token);
+  const key = playerKey(player);
   const profiles = loadProfiles();
   const existing = profiles[key];
 
@@ -440,7 +468,7 @@ app.post('/api/profile/sync', writeLimiter, (req, res) => {
   }
 
   const merged = {
-    displayName: profileName.trim().slice(0, 40),
+    displayName: player,
     save: mergeSave(existing?.save, save),
     achievements: mergeAchievements(existing?.achievements, achievements),
     hintTokens: Math.max(finite(existing?.hintTokens), finite(hintTokens)),
@@ -449,7 +477,7 @@ app.post('/api/profile/sync', writeLimiter, (req, res) => {
   };
   profiles[key] = merged;
   saveProfiles(profiles);
-  res.json({ ok: true, ...merged });
+  res.json({ ok: true, player, season: SEASON, ...merged });
 });
 
 app.use((req, res) => res.status(404).json({ error: 'not_found' }));
