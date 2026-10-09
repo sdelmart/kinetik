@@ -2,8 +2,10 @@ import { parseCompact } from './level.js';
 import campaign from './campaign.json';
 
 /**
- * Built-in campaign: 5 sectors of 10 levels, held as data in `campaign.json`
- * so the calibration script can reorder and re-par them without touching code.
+ * Built-in campaign: 8 sectors of 10 levels, held as data in `campaign.json`.
+ * The levels are produced by `scripts/generate-campaign.js`, which also stores
+ * each level's optimal solution (used by tests and instant hints) and a
+ * difficulty score that orders each sector.
  *
  * Levels use the compact single-grid notation:
  *   # wall   . floor   * charge plate   @ drone   $ container
@@ -11,17 +13,22 @@ import campaign from './campaign.json';
  *   ^ > v <  conveyor belts             a / b teleporter pair
  *   s switch g gate
  *
- * `npm run calibrate -- --write` solves every level, orders each sector from
- * easiest to hardest by optimal solution length, and derives `par` from it.
+ * `npm run calibrate` replays every stored solution to check it still works.
  */
+
+/** Stored solutions use one letter per move. */
+const SOLUTION_DIRS = { u: 'up', r: 'right', d: 'down', l: 'left' };
 
 export const BUILTIN_WORLDS = campaign.map((world) => ({
   id: world.id,
   accent: world.accent,
   builtin: true,
-  levels: world.levels.map((def, index) =>
-    parseCompact(def.rows, { id: `${world.id}-${index + 1}`, par: def.par }),
-  ),
+  // "v2": the regenerated campaign gets fresh ids, so progress and scores
+  // recorded on the old, much easier levels don't carry over to new ones.
+  levels: world.levels.map((def, index) => ({
+    ...parseCompact(def.rows, { id: `${world.id}-v2-${index + 1}`, par: def.par }),
+    solution: def.solution ? [...def.solution].map((c) => SOLUTION_DIRS[c]) : null,
+  })),
 }));
 
 export function findWorld(worlds, id) {

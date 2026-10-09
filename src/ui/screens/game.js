@@ -186,7 +186,7 @@ export function gameScreen(app, { worldId, levelIndex }) {
 
     // Yield a frame so the button repaints before the search blocks the thread.
     requestAnimationFrame(() => {
-      const result = computeHint(state);
+      const result = computeHint(state, level);
       if (!result.ok) {
         sfx.error();
         toast(t(`hint_${result.reason}`));

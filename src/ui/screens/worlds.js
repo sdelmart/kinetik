@@ -1,7 +1,7 @@
 import { el, button, topbar, stars, toast, confirmDialog } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { summarizeWorld } from '../../core/score.js';
-import { recordsFor, isWorldUnlocked } from '../../state/save.js';
+import { worldRecords, isWorldUnlocked } from '../../state/save.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
 import {
   listCommunityWorlds,
@@ -18,7 +18,7 @@ export function worldsScreen(app) {
   const renderGroup = (worlds, offsetForUnlock) => {
     const grid = el('div.grid');
     worlds.forEach((world, index) => {
-      const records = recordsFor(app.save, world.id);
+      const records = worldRecords(app.save, world);
       const summary = summarizeWorld(records);
       const unlocked = offsetForUnlock
         ? isWorldUnlocked(app.save, BUILTIN_WORLDS, index)

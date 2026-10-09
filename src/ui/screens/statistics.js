@@ -1,7 +1,7 @@
 import { el, button, topbar } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { BUILTIN_WORLDS } from '../../core/worlds.js';
-import { recordsFor } from '../../state/save.js';
+import { recordsFor, worldRecords } from '../../state/save.js';
 import { summarizeWorld, formatTime } from '../../core/score.js';
 import { ACHIEVEMENTS } from '../../core/achievements.js';
 import { computeStreak, computeLongestStreak, totalDailyClears, DAILY_WORLD_ID } from '../../core/daily.js';
@@ -54,7 +54,7 @@ export function statisticsScreen(app) {
   let levelsCompleted = 0;
   let totalStars = 0;
   for (const world of BUILTIN_WORLDS) {
-    const summary = summarizeWorld(recordsFor(save, world.id));
+    const summary = summarizeWorld(worldRecords(save, world));
     levelsCompleted += summary.completed;
     totalStars += summary.stars;
   }
@@ -88,7 +88,7 @@ export function statisticsScreen(app) {
       el('b', {}, `${totalStars} / ${TOTAL_STARS}`),
     ),
     ...BUILTIN_WORLDS.map((world) => {
-      const summary = summarizeWorld(recordsFor(save, world.id));
+      const summary = summarizeWorld(worldRecords(save, world));
       return el(
         'div.row',
         {},

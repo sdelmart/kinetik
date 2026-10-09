@@ -1,7 +1,7 @@
 import { el, button, topbar, confirmDialog, promptDialog, toast } from '../components.js';
 import { t } from '../../i18n/index.js';
 import { formatTime, summarizeWorld } from '../../core/score.js';
-import { loadSave, recordsFor } from '../../state/save.js';
+import { loadSave, worldRecords } from '../../state/save.js';
 import {
   createProfile,
   renameProfile,
@@ -20,7 +20,7 @@ export function profilesScreen(app) {
     const save = loadSave(profileKey(profile.id, 'save'));
     const levels = BUILTIN_WORLDS.reduce((sum, w) => sum + w.levels.length, 0);
     const done = BUILTIN_WORLDS.reduce(
-      (sum, world) => sum + summarizeWorld(recordsFor(save, world.id)).completed,
+      (sum, world) => sum + summarizeWorld(worldRecords(save, world)).completed,
       0,
     );
     return { done, levels, totals: save.totals };

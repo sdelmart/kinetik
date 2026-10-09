@@ -45,8 +45,11 @@ export function buildContext({ save, customWorlds, hasPublishedCommunity, hasSyn
 
   let levelsCompleted = 0;
   let totalStars = 0;
+  // Only levels that exist now: records left over from a replaced campaign
+  // (older level ids) must not count towards progress or stars.
   for (const world of BUILTIN_WORLDS) {
-    for (const record of Object.values(save.records[world.id] ?? {})) {
+    for (const level of world.levels) {
+      const record = save.records[world.id]?.[level.id];
       if (record?.completed) levelsCompleted++;
       totalStars += record?.bestStars ?? 0;
     }

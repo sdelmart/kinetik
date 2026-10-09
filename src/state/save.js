@@ -23,6 +23,18 @@ export function recordsFor(save, worldId) {
   return save.records[worldId] ?? {};
 }
 
+/**
+ * Records for the levels a world has *now*. A world's bucket can also hold
+ * records for levels that no longer exist (the campaign was regenerated with
+ * new level ids), which must not count towards its progress.
+ */
+export function worldRecords(save, world) {
+  const all = recordsFor(save, world.id);
+  const current = {};
+  for (const level of world.levels) if (all[level.id]) current[level.id] = all[level.id];
+  return current;
+}
+
 export function levelRecord(save, worldId, levelId) {
   return recordsFor(save, worldId)[levelId] ?? null;
 }

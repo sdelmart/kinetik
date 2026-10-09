@@ -1,4 +1,6 @@
-import { solveFromState } from './solver.js';
+import { solveFromState, makeKeyFn } from './solver.js';
+import { createState } from './state.js';
+import { step } from './rules.js';
 
 /**
  * Hint economy.
@@ -36,9 +38,31 @@ export function hintAvailability({ tokens, moves, par, seconds }) {
 }
 
 /**
+ * Instant hint when the player is still on the level's stored optimal route:
+ * walks that route from the start and returns the next move once it meets
+ * the current position. Null when the player has left the route.
+ */
+export function hintFromSolution(state, level) {
+  const solution = level?.solution;
+  if (!solution?.length) return null;
+  let cursor = createState(level);
+  const key = makeKeyFn(cursor);
+  const target = key(state);
+  for (let i = 0; i < solution.length; i++) {
+    if (key(cursor) === target) return { ok: true, direction: solution[i], remaining: solution.length - i };
+    const result = step(cursor, solution[i]);
+    if (!result) return null;
+    cursor = result.state;
+  }
+  return null;
+}
+
+/**
  * @returns {{ok: true, direction: string, remaining: number} | {ok: false, reason: string}}
  */
-export function computeHint(state) {
+export function computeHint(state, level) {
+  const onRoute = hintFromSolution(state, level);
+  if (onRoute) return onRoute;
   const { solved, moves } = solveFromState(state, { maxStates: SOLVE_BUDGET });
   if (!solved) return { ok: false, reason: 'unreachable' };
   if (!moves.length) return { ok: false, reason: 'already_solved' };

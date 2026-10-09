@@ -38,15 +38,20 @@ describe('findNotable', () => {
   });
 
   it('picks the fastest level by time-per-par, not raw time', () => {
-    // levelB has a much larger par, so a larger raw time can still be the
-    // faster relative pace.
+    // The level with the larger par is given the larger raw time but the
+    // better pace (time / par), and must still be picked as fastest.
+    const [small, large] = [levelA, levelB].sort((a, b) => a.par - b.par);
+    expect(large.par).toBeGreaterThan(small.par);
+    const smallTime = small.par; // pace 1.0
+    const largeTime = Math.max(smallTime + 1, Math.floor(large.par * 0.9)); // pace < 1, raw time larger
+    expect(largeTime / large.par).toBeLessThan(1);
     const { fastest } = findNotable(
       saveWith({
-        [levelA.id]: { bestTime: 10, bestStars: 3 }, // par 6 -> pace 1.67
-        [levelB.id]: { bestTime: 12, bestStars: 3 }, // par 19 -> pace 0.63
+        [small.id]: { bestTime: smallTime, bestStars: 3 },
+        [large.id]: { bestTime: largeTime, bestStars: 3 },
       }),
     );
-    expect(fastest.level.id).toBe(levelB.id);
+    expect(fastest.level.id).toBe(large.id);
   });
 
   it('ignores a record with no recorded time for the fastest pick', () => {

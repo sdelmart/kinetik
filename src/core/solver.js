@@ -9,7 +9,7 @@ const ORDER = ['up', 'right', 'down', 'left'];
  * tracks those cells instead of the whole board — which keeps the frontier
  * small enough to search.
  */
-function makeKeyFn(start) {
+export function makeKeyFn(start) {
   const mutable = [];
   for (let i = 0; i < start.terrain.length; i++) {
     if (start.terrain[i] === T.PIT || start.terrain[i] === T.FRAGILE || start.terrain[i] === T.KEYHOLE) {

@@ -387,12 +387,17 @@ app.get('/api/scores/:worldId', readLimiter, (req, res) => {
  * Everyone who has connected a profile to this server, best first — including
  * people with no score yet, so the group can see who's playing at all.
  */
+const CAMPAIGN_LEVEL_ID = /^[a-z]+-v2-\d+$/;
+
 function summarizePlayer(key, profile) {
   let levelsCompleted = 0;
   let stars = 0;
   for (const [worldId, levels] of Object.entries(profile.save?.records ?? {})) {
     if (worldId.startsWith('daily')) continue;
-    for (const record of Object.values(levels ?? {})) {
+    for (const [levelId, record] of Object.entries(levels ?? {})) {
+      // Campaign levels only ("<sector>-v2-<n>"): not the daily challenge, not
+      // community sectors, and not records from the replaced v1 campaign.
+      if (!CAMPAIGN_LEVEL_ID.test(levelId)) continue;
       if (record?.completed) levelsCompleted++;
       stars += finite(record?.bestStars);
     }

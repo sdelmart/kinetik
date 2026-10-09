@@ -13,8 +13,14 @@ export function labyrinthSectorsCleared(app) {
   return buildContext(app).sectorsComplete.length;
 }
 
+/**
+ * Open once enough Sokoban sectors are cleared — or for anyone who has already
+ * played it, so regenerating the Sokoban campaign never locks them out again.
+ */
 export function isLabyrinthUnlocked(app) {
-  return labyrinthSectorsCleared(app) >= labyrinthUnlockRequirement();
+  if (labyrinthSectorsCleared(app) >= labyrinthUnlockRequirement()) return true;
+  const save = loadLabyrinthSave(app.key?.('labyrinth'));
+  return Object.values(save.chapters).some((c) => c?.completed) || save.endless.bestDepth > 0;
 }
 
 const EMPTY = {

@@ -9,6 +9,7 @@ import {
   isLabyrinthUnlocked,
   labyrinthSectorsCleared,
   labyrinthUnlockRequirement,
+  persistLabyrinthSave,
 } from '../src/state/labyrinthSave.js';
 
 function reachableCount(cells, width, height) {
@@ -214,6 +215,12 @@ describe('labyrinth unlock gate', () => {
   it('unlocks once the requirement is met', () => {
     const required = labyrinthUnlockRequirement();
     const app = { save: saveWithSectorsCleared(required), customWorlds: [] };
+    expect(isLabyrinthUnlocked(app)).toBe(true);
+  });
+
+  it('stays open for someone who already played it, even below the requirement', () => {
+    persistLabyrinthSave({ chapters: { crypt: { completed: true, bestMoves: 9, bestSeconds: 9 } }, endless: { bestDepth: 0 } }, 'p:veteran:labyrinth');
+    const app = { save: saveWithSectorsCleared(0), customWorlds: [], key: (name) => `p:veteran:${name}` };
     expect(isLabyrinthUnlocked(app)).toBe(true);
   });
 });
