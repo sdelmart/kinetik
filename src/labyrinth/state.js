@@ -1,38 +1,87 @@
 import { N, E, S, W, edgeKey, generateMaze } from './maze.js';
 import { QUESTIONS } from './questions.js';
+import { generateQuestion } from './generatedQuestions.js';
 import { mulberry32, shuffle } from './rng.js';
 
 const DIR_BITS = { up: N, right: E, down: S, left: W };
 const DELTA = { up: { dx: 0, dy: -1 }, right: { dx: 1, dy: 0 }, down: { dx: 0, dy: 1 }, left: { dx: -1, dy: 0 } };
 
+/** Moves added to the run for each wrong answer — guessing has a cost. */
+export const WRONG_ANSWER_PENALTY = 5;
+
+/**
+ * Hands out questions for one run: written ones in the difficulty range,
+ * preferring ones this player hasn't seen yet, mixed with freshly generated
+ * puzzles so a run never has to repeat itself.
+ */
+export function createQuestionSource(spec, rng) {
+  const min = spec.minDifficulty ?? 1;
+  const max = spec.maxDifficulty ?? 3;
+  const avoid = spec.avoid ?? new Set();
+  const inRange = QUESTIONS.filter((q) => q.difficulty >= min && q.difficulty <= max);
+  const fresh = inRange.filter((q) => !avoid.has(q.id));
+  // Once a player has seen nearly everything in range, start over rather than run dry.
+  const written = shuffle(rng, fresh.length >= 6 ? fresh : inRange);
+  const generatedShare = max >= 2 ? (spec.generatedShare ?? 0.4) : 0;
+  let next = 0;
+
+  return function nextQuestion() {
+    if (generatedShare && (rng() < generatedShare || next >= written.length)) {
+      const lowest = Math.max(2, min);
+      return generateQuestion(rng, lowest + Math.floor(rng() * (max - lowest + 1)));
+    }
+    return written[next++ % written.length];
+  };
+}
+
 /**
  * Builds a playable run from a chapter spec (or an endless-mode spec built on
- * the fly) — the maze itself, which edges start locked, and a question drawn
- * per lock so the same run always offers the same prompts.
+ * the fly) — the maze itself, which edges start locked, and a question per lock.
  */
 export function createRun(spec) {
   const rng = mulberry32(spec.seed);
   const maze = generateMaze(spec.width, spec.height, rng, {
     gateCount: spec.gateCount,
     secretCount: spec.secretCount,
+    branching: spec.branching,
   });
 
-  const pool = shuffle(rng, QUESTIONS.filter((q) => q.difficulty <= spec.maxDifficulty));
+  // Questions use their own stream, so which questions a player has already
+  // seen never changes the layout of a fixed campaign maze.
+  const nextQuestion = createQuestionSource(spec, mulberry32(spec.seed ^ (Date.now() & 0xffff)));
   const locks = new Map();
-  let p = 0;
-  for (const key of maze.gates) locks.set(key, { kind: 'gate', question: pool[p++ % pool.length] });
-  for (const key of maze.secrets) locks.set(key, { kind: 'secret', question: pool[p++ % pool.length] });
+  for (const key of maze.gates) locks.set(key, { kind: 'gate', question: nextQuestion() });
+  for (const key of maze.secrets) locks.set(key, { kind: 'secret', question: nextQuestion() });
 
   return {
     spec,
     maze,
     locks,
+    nextQuestion,
     resolved: new Set(),
     player: { ...maze.start },
     visited: new Set([cellKey(maze.start)]),
     moves: 0,
+    hintsLeft: spec.hintBudget ?? 2,
     startedAt: Date.now(),
   };
+}
+
+/**
+ * A wrong answer: the lock gets a different question (so the other choices
+ * can't simply be tried one after another) and the run pays a move penalty.
+ */
+export function failLock(run, edge) {
+  const lock = run.locks.get(edge);
+  if (!lock) return run;
+  const locks = new Map(run.locks);
+  locks.set(edge, { ...lock, question: run.nextQuestion() });
+  return { ...run, locks, moves: run.moves + WRONG_ANSWER_PENALTY };
+}
+
+/** Spends one of the run's hints, if any are left. */
+export function spendHint(run) {
+  return run.hintsLeft > 0 ? { ...run, hintsLeft: run.hintsLeft - 1 } : run;
 }
 
 function cellKey(pos) {
@@ -89,16 +138,30 @@ export function resolveMaxDifficulty(preference, autoValue) {
   return DIFFICULTY_CAPS[preference] ?? autoValue;
 }
 
-/** Difficulty scaling for endless mode: every 3 floors, the maze grows and hardens. */
+/**
+ * Full range version: an explicit level means exactly that level, while
+ * 'auto' keeps the chapter's own range, whose floor rises through the
+ * campaign so late chapters stop handing out easy questions.
+ */
+export function resolveDifficultyRange(preference, autoMin, autoMax) {
+  const cap = DIFFICULTY_CAPS[preference];
+  if (cap) return { minDifficulty: cap, maxDifficulty: cap };
+  return { minDifficulty: Math.min(autoMin ?? 1, autoMax), maxDifficulty: autoMax };
+}
+
+/** Difficulty scaling for endless mode: every 3 floors the maze grows, darkens and hardens. */
 export function endlessSpec(depth, seed) {
   const tier = Math.floor(depth / 3);
   return {
     id: `endless-${depth}`,
     seed: seed ^ (depth * 0x9e3779b1),
-    width: Math.min(18, 6 + tier),
-    height: Math.min(14, 5 + tier),
-    gateCount: Math.min(10, 2 + tier),
-    secretCount: Math.min(4, 1 + Math.floor(tier / 2)),
-    maxDifficulty: Math.min(3, 1 + Math.floor(depth / 5)),
+    width: Math.min(24, 9 + tier * 2),
+    height: Math.min(15, 7 + tier),
+    gateCount: Math.min(12, 3 + tier),
+    secretCount: Math.min(5, 1 + Math.floor(tier / 2)),
+    minDifficulty: Math.min(3, 1 + Math.floor(depth / 4)),
+    maxDifficulty: Math.min(3, 2 + Math.floor(depth / 4)),
+    vision: depth < 3 ? null : Math.max(2, 5 - Math.floor(depth / 4)),
+    hintBudget: 1,
   };
 }

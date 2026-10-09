@@ -35,18 +35,25 @@ function inBounds(x, y, width, height) {
   return x >= 0 && y >= 0 && x < width && y < height;
 }
 
-/** Randomized iterative depth-first carve (an explicit stack avoids recursion limits). */
-export function carveMaze(width, height, rng) {
+/**
+ * Growing-tree carve. Always extending the newest cell gives a depth-first
+ * maze — long winding corridors, few dead ends, easy to follow. Picking a
+ * random active cell some of the time adds side branches and many more dead
+ * ends, which is what makes a maze genuinely hard to read. `branching` is
+ * the share of random picks (0 = pure depth-first).
+ */
+export function carveMaze(width, height, rng, branching = 0.35) {
   const cells = new Uint8Array(width * height);
   const visited = new Uint8Array(width * height);
   const idx = (x, y) => y * width + x;
 
   const start = { x: randInt(rng, width), y: randInt(rng, height) };
   visited[idx(start.x, start.y)] = 1;
-  const stack = [start];
+  const active = [start];
 
-  while (stack.length) {
-    const { x, y } = stack[stack.length - 1];
+  while (active.length) {
+    const at = rng() < branching ? randInt(rng, active.length) : active.length - 1;
+    const { x, y } = active[at];
     const options = shuffle(rng, DIRS).filter((d) => {
       const nx = x + d.dx;
       const ny = y + d.dy;
@@ -54,7 +61,7 @@ export function carveMaze(width, height, rng) {
     });
 
     if (!options.length) {
-      stack.pop();
+      active.splice(at, 1);
       continue;
     }
 
@@ -64,10 +71,32 @@ export function carveMaze(width, height, rng) {
     cells[idx(x, y)] |= dir.bit;
     cells[idx(nx, ny)] |= dir.opp;
     visited[idx(nx, ny)] = 1;
-    stack.push({ x: nx, y: ny });
+    active.push({ x: nx, y: ny });
   }
 
   return cells;
+}
+
+/** The cell farthest (by walking distance) from `start` — the hardest place to put an exit. */
+export function farthestCell(cells, width, height, start) {
+  const idx = (x, y) => y * width + x;
+  const dist = new Int32Array(width * height).fill(-1);
+  dist[idx(start.x, start.y)] = 0;
+  const queue = [start];
+  let best = start;
+  for (let head = 0; head < queue.length; head++) {
+    const { x, y } = queue[head];
+    if (dist[idx(x, y)] > dist[idx(best.x, best.y)]) best = { x, y };
+    for (const d of DIRS) {
+      if (!(cells[idx(x, y)] & d.bit)) continue;
+      const nx = x + d.dx;
+      const ny = y + d.dy;
+      if (dist[idx(nx, ny)] !== -1) continue;
+      dist[idx(nx, ny)] = dist[idx(x, y)] + 1;
+      queue.push({ x: nx, y: ny });
+    }
+  }
+  return best;
 }
 
 /** BFS shortest path between two cells, returned as an ordered list of {x,y}. */
@@ -132,10 +161,10 @@ export function addLoopEdges(cells, width, height, rng, count) {
  * of mandatory gates picked from the main path. `path` is the pre-loop
  * shortest route, so gates are guaranteed on the only way through.
  */
-export function generateMaze(width, height, rng, { secretCount = 3, gateCount = 4 } = {}) {
-  const cells = carveMaze(width, height, rng);
+export function generateMaze(width, height, rng, { secretCount = 3, gateCount = 4, branching = 0.35 } = {}) {
+  const cells = carveMaze(width, height, rng, branching);
   const start = { x: 0, y: 0 };
-  const exit = { x: width - 1, y: height - 1 };
+  const exit = farthestCell(cells, width, height, start);
   const path = shortestPath(cells, width, height, start, exit);
 
   const pathEdges = [];

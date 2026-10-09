@@ -6,11 +6,15 @@ import {
   createRun,
   step,
   resolveLock,
+  failLock,
+  spendHint,
   blockingAt,
   isAtExit,
   endlessSpec,
-  resolveMaxDifficulty,
+  resolveDifficultyRange,
+  WRONG_ANSWER_PENALTY,
 } from '../../labyrinth/state.js';
+import { read, write } from '../../state/storage.js';
 import { drawMaze } from '../../labyrinth/render.js';
 import {
   loadLabyrinthSave,
@@ -33,8 +37,22 @@ export function labyrinthScreen(app, params) {
   let depth = 0;
   const endlessSeed = Date.now() & 0xffffffff;
 
+  // Written questions this player has already been asked, so they come up
+  // again only once the pool in their difficulty range is used up.
+  const SEEN_KEY = app.key('labSeenQuestions');
+  const seenQuestions = new Set(read(SEEN_KEY, []));
+  function markSeen(question) {
+    if (question.generated || seenQuestions.has(question.id)) return;
+    seenQuestions.add(question.id);
+    write(SEEN_KEY, [...seenQuestions].slice(-400));
+  }
+
   function specFor(baseSpec) {
-    return { ...baseSpec, maxDifficulty: resolveMaxDifficulty(app.settings.labyrinthDifficulty, baseSpec.maxDifficulty) };
+    return {
+      ...baseSpec,
+      ...resolveDifficultyRange(app.settings.labyrinthDifficulty, baseSpec.minDifficulty, baseSpec.maxDifficulty),
+      avoid: seenQuestions,
+    };
   }
 
   let run = createRun(specFor(isEndless ? endlessSpec(depth, endlessSeed) : chapter));
@@ -42,6 +60,7 @@ export function labyrinthScreen(app, params) {
   let pendingLock = null;
   let lastAttemptedDir = null;
   let eliminated = [];
+  let hintedThisQuestion = false;
 
   const canvas = el('canvas');
   const boardHost = el('div.board-host', {}, canvas);
@@ -49,19 +68,24 @@ export function labyrinthScreen(app, params) {
   const modalHost = el('div');
   const movesStat = stat(t('lab.moves'), '0');
   const depthStat = isEndless ? stat(t('lab.depth'), '1') : null;
-  const hintStat = stat(`💡 ${t('hint_tokens')}`, String(app.hintTokens));
+  const hintStat = stat(`💡 ${t('lab.hints_left')}`, String(run.hintsLeft));
   const hud = el('div.hud', {}, movesStat, depthStat, hintStat);
-  const main = el('div.editor-main', {}, boardHost, status, modalHost);
+  const main = el('div.editor-main.lab-main', {}, boardHost, status, modalHost);
 
   let frame = null;
   let ctx = null;
   let tile = 32;
 
   function resize() {
-    const rect = boardHost.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+    // Size from the content box, not the border box: counting the padding made
+    // the canvas slightly too big, and the CSS max-width/max-height then
+    // squashed it on one axis only — circles turned oval and drifted off-centre.
+    const style = getComputedStyle(boardHost);
+    const availW = boardHost.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const availH = boardHost.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    if (availW <= 0 || availH <= 0) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    tile = Math.max(12, Math.floor(Math.min(rect.width / run.maze.width, rect.height / run.maze.height)));
+    tile = Math.max(8, Math.floor(Math.min(availW / run.maze.width, availH / run.maze.height)));
     canvas.width = Math.round(run.maze.width * tile * dpr);
     canvas.height = Math.round(run.maze.height * tile * dpr);
     canvas.style.width = `${run.maze.width * tile}px`;
@@ -84,15 +108,21 @@ export function labyrinthScreen(app, params) {
     eliminated = [];
   }
 
+  function refreshHud() {
+    movesStat.querySelector('b').textContent = String(run.moves);
+    hintStat.querySelector('b').textContent = String(run.hintsLeft);
+  }
+
+  /** One hint per question, within the run's budget: it removes a single wrong answer. */
   function useHint() {
-    if (!pendingLock || app.hintTokens <= 0) return;
-    const remaining = choiceOrder.filter((i) => !eliminated.includes(i));
-    if (remaining.length <= 2) return;
-    const wrongChoices = remaining.filter((i) => i !== pendingLock.question.answer);
+    if (!pendingLock || hintedThisQuestion || run.hintsLeft <= 0 || app.hintTokens <= 0) return;
+    const wrongChoices = choiceOrder.filter((i) => !eliminated.includes(i) && i !== pendingLock.question.answer);
     const pick = wrongChoices[Math.floor(Math.random() * wrongChoices.length)];
     eliminated = [...eliminated, pick];
+    hintedThisQuestion = true;
+    run = spendHint(run);
     app.setHintTokens(app.hintTokens - 1);
-    hintStat.querySelector('b').textContent = String(app.hintTokens);
+    refreshHud();
     renderModal();
   }
 
@@ -104,8 +134,8 @@ export function labyrinthScreen(app, params) {
       actions.append(button(lock.question.choices[choiceIndex], () => answer(choiceIndex)));
     }
 
-    const canHint = app.hintTokens > 0 && visible.length > 2;
-    const hintBtn = button(`💡 ${t('lab.hint')} · ${app.hintTokens}`, useHint, { variant: 'ghost' });
+    const canHint = !hintedThisQuestion && run.hintsLeft > 0 && app.hintTokens > 0 && visible.length > 2;
+    const hintBtn = button(`💡 ${t('lab.hint')} · ${run.hintsLeft}`, useHint, { variant: 'ghost' });
     hintBtn.disabled = !canHint;
 
     const row = el('div', { style: { display: 'flex', gap: '8px', marginTop: '10px' } }, hintBtn);
@@ -130,14 +160,21 @@ export function labyrinthScreen(app, params) {
   function openModal(lock) {
     pendingLock = lock;
     eliminated = [];
+    hintedThisQuestion = false;
     choiceOrder = shuffle(mulberry32(lock.question.id.length * 7 + run.moves), [0, 1, 2, 3]);
+    markSeen(lock.question);
     renderModal();
   }
 
   function answer(choiceIndex) {
     const correct = choiceIndex === pendingLock.question.answer;
     if (!correct) {
-      toast(t('lab.wrong_answer'));
+      // No trying the other answers one by one: the lock moves on to a new
+      // riddle and the run pays for the guess.
+      run = failLock(run, pendingLock.edge);
+      refreshHud();
+      toast(t('lab.wrong_answer_penalty', { penalty: WRONG_ANSWER_PENALTY }));
+      openModal({ ...pendingLock, question: run.locks.get(pendingLock.edge).question });
       return;
     }
     const kind = pendingLock.kind;
@@ -174,7 +211,7 @@ export function labyrinthScreen(app, params) {
       run = createRun(specFor(endlessSpec(depth, endlessSeed)));
       startedAt = Date.now();
       depthStat.querySelector('b').textContent = String(depth + 1);
-      movesStat.querySelector('b').textContent = '0';
+      refreshHud();
       resize();
     } else {
       let save = loadLabyrinthSave(app.key('labyrinth'));

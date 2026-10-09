@@ -9,8 +9,10 @@ export const LAB_PALETTE = {
   void: '#07090c',
   floor: '#241c16',
   floorVisited: '#3a2d20',
+  floorRemembered: '#18130f',
   wall: '#120e0b',
   wallEdge: '#5a4530',
+  wallRemembered: '#33281d',
   player: '#ffcf7a',
   exit: '#7affa0',
   gateLocked: '#ff6a4d',
@@ -36,17 +38,56 @@ function edgeKeyFor(x, y, bit) {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
+/**
+ * 'lit' (inside the torch radius, or the whole maze when there's no fog),
+ * 'remembered' (visited before, now out of the light) or 'dark'.
+ */
+export function cellVisibility(run, x, y) {
+  const vision = run.spec?.vision;
+  if (!vision) return 'lit';
+  const dx = x - run.player.x;
+  const dy = y - run.player.y;
+  if (dx * dx + dy * dy <= vision * vision) return 'lit';
+  return run.visited.has(`${x},${y}`) ? 'remembered' : 'dark';
+}
+
+/** A closed portcullis drawn along the shared edge, so it sits exactly on the cell boundary. */
+function drawGate(ctx, x1, y1, x2, y2, tile) {
+  const horizontal = y1 === y2;
+  const inset = tile * 0.12;
+  const half = tile * 0.08;
+  ctx.fillStyle = LAB_PALETTE.gateLocked;
+  if (horizontal) {
+    ctx.fillRect(x1 + inset, y1 - half, x2 - x1 - inset * 2, half * 2);
+  } else {
+    ctx.fillRect(x1 - half, y1 + inset, half * 2, y2 - y1 - inset * 2);
+  }
+  // Bars across the gate.
+  ctx.fillStyle = '#3a1208';
+  const bars = 3;
+  for (let i = 1; i <= bars; i++) {
+    const k = i / (bars + 1);
+    if (horizontal) ctx.fillRect(x1 + (x2 - x1) * k - 1, y1 - half, 2, half * 2);
+    else ctx.fillRect(x1 - half, y1 + (y2 - y1) * k - 1, half * 2, 2);
+  }
+}
+
 export function drawMaze(ctx, run, { tile, time = 0 }) {
   const { maze, player, visited, locks, resolved } = run;
   const { width, height } = maze;
+  const fog = Boolean(run.spec?.vision);
 
   ctx.fillStyle = LAB_PALETTE.void;
   ctx.fillRect(0, 0, width * tile, height * tile);
 
+  const seen = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const seen = visited.has(`${x},${y}`);
-      ctx.fillStyle = seen ? LAB_PALETTE.floorVisited : LAB_PALETTE.floor;
+      const visibility = cellVisibility(run, x, y);
+      seen[y * width + x] = visibility;
+      if (visibility === 'dark') continue;
+      if (visibility === 'remembered') ctx.fillStyle = LAB_PALETTE.floorRemembered;
+      else ctx.fillStyle = visited.has(`${x},${y}`) ? LAB_PALETTE.floorVisited : LAB_PALETTE.floor;
       ctx.fillRect(x * tile, y * tile, tile, tile);
     }
   }
@@ -54,8 +95,10 @@ export function drawMaze(ctx, run, { tile, time = 0 }) {
   ctx.lineCap = 'round';
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      const cell = maze.cells[idx];
+      const visibility = seen[y * width + x];
+      if (visibility === 'dark') continue;
+      const lit = visibility === 'lit';
+      const cell = maze.cells[y * width + x];
       const px = x * tile;
       const py = y * tile;
 
@@ -64,13 +107,17 @@ export function drawMaze(ctx, run, { tile, time = 0 }) {
         const key = edgeKeyFor(x, y, side.bit);
         const lock = locks.get(key);
         const isLocked = lock && !resolved.has(key);
+        const x1 = px + side.x1 * tile;
+        const y1 = py + side.y1 * tile;
+        const x2 = px + side.x2 * tile;
+        const y2 = py + side.y2 * tile;
 
         if (!open) {
-          ctx.strokeStyle = LAB_PALETTE.wallEdge;
+          ctx.strokeStyle = lit ? LAB_PALETTE.wallEdge : LAB_PALETTE.wallRemembered;
           ctx.lineWidth = Math.max(2, tile * 0.1);
           ctx.beginPath();
-          ctx.moveTo(px + side.x1 * tile, py + side.y1 * tile);
-          ctx.lineTo(px + side.x2 * tile, py + side.y2 * tile);
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
           ctx.stroke();
 
           // A secret passage gives the faintest shimmer, only once the
@@ -87,27 +134,38 @@ export function drawMaze(ctx, run, { tile, time = 0 }) {
             }
           }
         } else if (isLocked && lock.kind === 'gate') {
-          const mx = px + ((side.x1 + side.x2) / 2) * tile;
-          const my = py + ((side.y1 + side.y2) / 2) * tile;
-          ctx.fillStyle = LAB_PALETTE.gateLocked;
-          ctx.beginPath();
-          ctx.arc(mx, my, tile * 0.12, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.globalAlpha = lit ? 1 : 0.45;
+          drawGate(ctx, x1, y1, x2, y2, tile);
+          ctx.globalAlpha = 1;
         }
       }
     }
   }
 
-  // exit
+  // Exit: in the fog, only a faint beacon until it's actually been seen.
+  const exitSeen = seen[maze.exit.y * width + maze.exit.x] !== 'dark';
   const ex = maze.exit.x * tile + tile / 2;
   const ey = maze.exit.y * tile + tile / 2;
   const pulse = 0.6 + 0.4 * Math.sin(time / 260);
   ctx.fillStyle = LAB_PALETTE.exit;
-  ctx.globalAlpha = 0.5 + pulse * 0.3;
+  ctx.globalAlpha = exitSeen ? 0.5 + pulse * 0.3 : 0.12 + pulse * 0.1;
   ctx.beginPath();
-  ctx.arc(ex, ey, tile * 0.3, 0, Math.PI * 2);
+  ctx.arc(ex, ey, tile * (exitSeen ? 0.3 : 0.22), 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
+
+  // Torchlight falloff around the player, so the edge of the light is soft.
+  if (fog) {
+    const cx = player.x * tile + tile / 2;
+    const cy = player.y * tile + tile / 2;
+    const reach = (run.spec.vision + 0.6) * tile;
+    const flicker = 1 + 0.03 * Math.sin(time / 90);
+    const gradient = ctx.createRadialGradient(cx, cy, reach * 0.35, cx, cy, reach * flicker);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, 'rgba(7,9,12,0.55)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width * tile, height * tile);
+  }
 
   // player
   const pxp = player.x * tile + tile / 2;

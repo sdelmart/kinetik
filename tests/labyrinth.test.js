@@ -134,9 +134,9 @@ describe('endlessSpec', () => {
     const shallow = endlessSpec(0, 1);
     const deep = endlessSpec(30, 1);
     expect(deep.width).toBeGreaterThan(shallow.width);
-    expect(deep.width).toBeLessThanOrEqual(18);
-    expect(deep.height).toBeLessThanOrEqual(14);
-    expect(deep.gateCount).toBeLessThanOrEqual(10);
+    expect(deep.width).toBeLessThanOrEqual(24);
+    expect(deep.height).toBeLessThanOrEqual(15);
+    expect(deep.gateCount).toBeLessThanOrEqual(12);
     expect(deep.maxDifficulty).toBeLessThanOrEqual(3);
   });
 
