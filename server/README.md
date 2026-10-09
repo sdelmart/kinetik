@@ -118,9 +118,33 @@ sur ta box/routeur vers le serveur Ubuntu.
 
 Une fois ça fait, mets `https://kinetik-api.ton-domaine.fr` comme adresse de
 serveur dans KINETIK (Réglages → Serveur communautaire), pour toi et pour
-chaque personne du groupe. Mets aussi cette adresse dans `ALLOWED_ORIGINS` du
-`.env` si KINETIK tourne en version web plutôt qu'en app desktop (l'app
-desktop n'a pas de restriction CORS à configurer).
+chaque personne du groupe. L'adresse doit être en `https://` : l'app desktop
+refuse les connexions en `http://`.
+
+`ALLOWED_ORIGINS` concerne aussi l'app desktop, qui se présente au serveur avec
+l'origine `tauri://localhost`. Laisse `*`, ou si tu restreins, garde
+`tauri://localhost` dans la liste (plus `http://tauri.localhost` pour Windows),
+sinon l'app desktop sera refusée.
+
+### Dépannage : « tlsv1 alert internal error »
+
+Si le navigateur ne charge même pas `https://kinetik-api.ton-domaine.fr/api/health`
+et que `curl` affiche cette erreur, Caddy n'a pas de certificat à présenter pour
+ce nom. Sur un Caddy qui a aussi une règle `*.ton-domaine` en `on_demand` avec
+un `ask`, mets le bloc KINETIK dans le même mode et assure-toi que le service
+`ask` l'autorise :
+
+```caddyfile
+kinetik-api.ton-domaine.fr {
+    tls {
+        on_demand
+    }
+    reverse_proxy localhost:8787
+}
+```
+
+Teste l'autorisation avec `curl -i "http://127.0.0.1:9191/ask?domain=kinetik-api.ton-domaine.fr"`
+(adapte l'adresse à ton `ask`) : il faut un `200`.
 
 ## Sécurité — ce que ce serveur fait et ne fait pas
 
