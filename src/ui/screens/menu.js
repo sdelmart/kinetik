@@ -189,6 +189,7 @@ export function menuScreen(app) {
           dailyButton,
           button(t('editor'), () => app.go('editor'), { variant: 'ghost' }),
           button(t('statistics'), () => app.go('statistics'), { variant: 'ghost' }),
+          button(t('players_title'), () => app.go('players'), { variant: 'ghost' }),
           button(t('achievements'), () => app.go('achievements'), { variant: 'ghost' }),
           button(t('settings'), () => app.go('settings'), { variant: 'ghost' }),
           button(t('credits'), () => app.go('credits'), { variant: 'ghost' }),

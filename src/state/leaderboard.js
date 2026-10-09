@@ -46,3 +46,16 @@ export function fetchLevelLeaderboard(serverUrl, worldId, levelId) {
 export function fetchWorldLeaderboard(serverUrl, worldId) {
   return request(serverUrl, `/api/scores/${encodeURIComponent(worldId)}`);
 }
+
+/** Sends many best scores at once — used to catch up on scores made while the server was unreachable. */
+export function submitScores(serverUrl, { token, author, scores }) {
+  return request(serverUrl, '/api/scores/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ token, author, scores }),
+  });
+}
+
+/** Everyone who has connected a profile to the server, with their overall progress. */
+export function fetchPlayers(serverUrl) {
+  return request(serverUrl, '/api/players');
+}

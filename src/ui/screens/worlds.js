@@ -155,8 +155,8 @@ export function worldsScreen(app) {
       // the button to, not itself a security check.
       const canDelete =
         app.settings.communityToken &&
-        app.settings.communityAuthor &&
-        summary.author === app.settings.communityAuthor;
+        app.communityName() &&
+        summary.author === app.communityName();
 
       const actions = el(
         'div',

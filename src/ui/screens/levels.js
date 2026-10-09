@@ -41,7 +41,7 @@ export function levelsScreen(app, { worldId }) {
       ...ranking.slice(0, 20).map((row, rank) =>
         el(
           'div.leaderboard-row',
-          { class: row.author === app.settings.communityAuthor ? 'me' : '' },
+          { class: row.author === app.communityName() ? 'me' : '' },
           el('span.leaderboard-rank', {}, `#${rank + 1}`),
           el('span.author-avatar', { style: { background: authorColor(row.author) } }, authorInitial(row.author)),
           el('span.leaderboard-name', {}, row.author),

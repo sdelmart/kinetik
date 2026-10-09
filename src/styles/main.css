@@ -570,6 +570,18 @@ input[type='checkbox'] {
   min-width: 0;
 }
 
+/* In the Labyrinth the board area is a direct child of the screen column and
+   must take the remaining height itself — sized by its own canvas, it never
+   settled on the real available space. */
+.lab-main {
+  flex: 1;
+}
+
+.lab-main .board-host {
+  display: grid;
+  place-items: center;
+}
+
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -962,4 +974,63 @@ input[type='checkbox'] {
   .content {
     padding: 20px 14px 32px;
   }
+}
+
+/* ---------- Overall player ranking ---------- */
+
+.players {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  overflow-x: auto;
+}
+
+.players-row {
+  display: grid;
+  grid-template-columns: 2.5em minmax(9em, 1.6fr) 1fr 1fr 0.6fr 1.3fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  min-width: 560px;
+}
+
+.players-row:first-child {
+  border-top: none;
+}
+
+.players-head {
+  color: var(--text-faint);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.players-row.me {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.players-rank {
+  color: var(--text-faint);
+}
+
+.players-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.players-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.players-depth {
+  color: var(--text-faint);
 }

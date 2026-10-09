@@ -19,6 +19,7 @@ import { buildContext, evaluateAchievements } from '../core/achievements.js';
 import { loadUnlockedAchievements, persistUnlockedAchievements } from '../state/achievements.js';
 import { loadLabyrinthSave, persistLabyrinthSave } from '../state/labyrinthSave.js';
 import { syncProfile } from '../state/profileSync.js';
+import { submitScores } from '../state/leaderboard.js';
 import { read, write } from '../state/storage.js';
 import { setLanguage, t } from '../i18n/index.js';
 import { setMusicVolume, setSfxVolume, setMuted, unlock } from '../audio/engine.js';
@@ -38,9 +39,11 @@ import { statisticsScreen } from './screens/statistics.js';
 import { labyrinthMenuScreen } from './screens/labyrinthMenu.js';
 import { labyrinthScreen } from './screens/labyrinth.js';
 import { introScreen } from './screens/intro.js';
+import { playersScreen } from './screens/players.js';
 
 const SCREENS = {
   intro: introScreen,
+  players: playersScreen,
   profiles: profilesScreen,
   menu: menuScreen,
   worlds: worldsScreen,
@@ -170,6 +173,54 @@ export class App {
     this.checkAchievements();
   }
 
+  /** The name this profile appears under on the server: the chosen display name, else the profile name. */
+  communityName() {
+    return (this.settings.communityAuthor || this.profile?.name || '').trim();
+  }
+
+  /** Remembers which best score has already reached the server, so catch-up only sends what's new. */
+  markScorePushed(worldId, levelId, score) {
+    const pushed = read(this.key('scoresPushed'), {});
+    const key = `${worldId}/${levelId}`;
+    if ((pushed[key] ?? -1) >= score) return;
+    pushed[key] = score;
+    write(this.key('scoresPushed'), pushed);
+  }
+
+  /**
+   * Sends every campaign best score the server hasn't seen yet — scores made
+   * while it was unreachable would otherwise never reach the leaderboard.
+   */
+  async pushPendingScores() {
+    const { communityServerUrl, communityToken } = this.settings;
+    const author = this.communityName();
+    if (!communityServerUrl || !communityToken || !author) return { ok: false, error: 'not_configured' };
+
+    const pushed = read(this.key('scoresPushed'), {});
+    const pending = [];
+    for (const world of BUILTIN_WORLDS) {
+      for (const [levelId, record] of Object.entries(this.save.records[world.id] ?? {})) {
+        if (!record?.completed || (pushed[`${world.id}/${levelId}`] ?? -1) >= record.bestScore) continue;
+        pending.push({
+          worldId: world.id,
+          levelId,
+          worldName: this.worldTitle(world),
+          moves: record.bestMoves,
+          pushes: 0,
+          seconds: record.bestTime,
+          score: record.bestScore,
+          stars: record.bestStars,
+        });
+      }
+    }
+    if (!pending.length) return { ok: true, data: { stored: 0 } };
+
+    const batch = pending.slice(0, 300);
+    const result = await submitScores(communityServerUrl, { token: communityToken, author, scores: batch });
+    if (result.ok) for (const entry of batch) this.markScorePushed(entry.worldId, entry.levelId, entry.score);
+    return result;
+  }
+
   /**
    * Pushes this profile's progress to the community server and applies
    * whatever comes back (the merge of what was sent with whatever another
@@ -211,6 +262,7 @@ export class App {
     this.setHintTokens(result.data.hintTokens);
     persistLabyrinthSave(result.data.labyrinth, this.key('labyrinth'));
     this.checkAchievements();
+    this.pushPendingScores();
 
     const disruptiveToRefresh = ['game', 'labyrinth', 'intro'];
     if (changed && !disruptiveToRefresh.includes(this.route?.name)) this.refresh();

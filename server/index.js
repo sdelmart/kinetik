@@ -269,6 +269,34 @@ function validateScorePayload(body) {
   return null;
 }
 
+/** Keeps only the best score per (world, level, author). Returns whether it was stored. */
+function upsertScore(scores, entry) {
+  const author = entry.author.trim().slice(0, 40);
+  const existing = scores.find(
+    (s) => s.worldId === entry.worldId && s.levelId === entry.levelId && s.author === author,
+  );
+  const { moves, pushes, seconds, score, stars } = entry;
+  if (existing) {
+    if (score <= existing.score) return { stored: false };
+    Object.assign(existing, { moves, pushes, seconds, score, stars, achievedAt: new Date().toISOString() });
+    return { stored: true };
+  }
+  if (scores.length >= MAX_SCORES) return { stored: false, full: true };
+  scores.push({
+    worldId: entry.worldId,
+    levelId: entry.levelId,
+    worldName: typeof entry.worldName === 'string' ? entry.worldName.slice(0, 80) : null,
+    author,
+    moves,
+    pushes,
+    seconds,
+    score,
+    stars,
+    achievedAt: new Date().toISOString(),
+  });
+  return { stored: true };
+}
+
 app.post('/api/scores', writeLimiter, (req, res) => {
   const { token } = req.body ?? {};
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
@@ -277,37 +305,40 @@ app.post('/api/scores', writeLimiter, (req, res) => {
   const problem = validateScorePayload(req.body);
   if (problem) return res.status(400).json({ error: problem });
 
-  const { worldId, levelId, worldName, author, moves, pushes, seconds, score, stars } = req.body;
-  const trimmedAuthor = author.trim().slice(0, 40);
   const scores = loadScores();
-  const existing = scores.find(
-    (s) => s.worldId === worldId && s.levelId === levelId && s.author === trimmedAuthor,
-  );
+  const result = upsertScore(scores, req.body);
+  if (result.full) return res.status(507).json({ error: 'storage_full' });
+  if (result.stored) saveScores(scores);
+  res.status(result.stored ? 201 : 200).json({ ok: true, best: result.stored });
+});
 
-  if (existing) {
-    const improved = score > existing.score;
-    if (improved) {
-      Object.assign(existing, { moves, pushes, seconds, score, stars, achievedAt: new Date().toISOString() });
-      saveScores(scores);
-    }
-    return res.json({ ok: true, best: improved });
+const MAX_BULK_SCORES = 300;
+
+// Catches up scores a device couldn't send at the time (server down, offline
+// play): one request for many levels, so it doesn't eat the write rate limit.
+app.post('/api/scores/bulk', writeLimiter, (req, res) => {
+  const { token, author, scores: incoming } = req.body ?? {};
+  if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+  if (typeof author !== 'string' || !author.trim()) return res.status(400).json({ error: 'invalid_author' });
+  if (!Array.isArray(incoming) || incoming.length > MAX_BULK_SCORES) {
+    return res.status(400).json({ error: 'invalid_scores' });
   }
 
-  if (scores.length >= MAX_SCORES) return res.status(507).json({ error: 'storage_full' });
-  scores.push({
-    worldId,
-    levelId,
-    worldName: typeof worldName === 'string' ? worldName.slice(0, 80) : null,
-    author: trimmedAuthor,
-    moves,
-    pushes,
-    seconds,
-    score,
-    stars,
-    achievedAt: new Date().toISOString(),
-  });
-  saveScores(scores);
-  res.status(201).json({ ok: true, best: true });
+  const scores = loadScores();
+  let stored = 0;
+  let rejected = 0;
+  for (const entry of incoming) {
+    const candidate = { ...entry, author };
+    if (validateScorePayload(candidate)) {
+      rejected++;
+      continue;
+    }
+    if (upsertScore(scores, candidate).stored) stored++;
+  }
+  if (stored) saveScores(scores);
+  res.json({ ok: true, stored, rejected });
 });
 
 app.get('/api/scores/:worldId/:levelId', readLimiter, (req, res) => {
@@ -352,6 +383,40 @@ app.get('/api/scores/:worldId', readLimiter, (req, res) => {
 // achievement lists union — so calling this from any device, in any order,
 // never loses progress made on another one.
 
+/**
+ * Everyone who has connected a profile to this server, best first — including
+ * people with no score yet, so the group can see who's playing at all.
+ */
+function summarizePlayer(key, profile) {
+  let levelsCompleted = 0;
+  let stars = 0;
+  for (const [worldId, levels] of Object.entries(profile.save?.records ?? {})) {
+    if (worldId.startsWith('daily')) continue;
+    for (const record of Object.values(levels ?? {})) {
+      if (record?.completed) levelsCompleted++;
+      stars += finite(record?.bestStars);
+    }
+  }
+  const chapters = Object.values(profile.labyrinth?.chapters ?? {}).filter((c) => c?.completed).length;
+  return {
+    name: profile.displayName ?? key,
+    score: finite(profile.save?.totals?.score),
+    levelsCompleted,
+    stars,
+    labyrinthChapters: chapters,
+    endlessDepth: finite(profile.labyrinth?.endless?.bestDepth),
+    achievements: Array.isArray(profile.achievements) ? profile.achievements.length : 0,
+    updatedAt: profile.updatedAt ?? null,
+  };
+}
+
+app.get('/api/players', readLimiter, (req, res) => {
+  const players = Object.entries(loadProfiles())
+    .map(([key, profile]) => summarizePlayer(key, profile))
+    .sort((a, b) => b.score - a.score || b.levelsCompleted - a.levelsCompleted);
+  res.json(players);
+});
+
 app.post('/api/profile/sync', writeLimiter, (req, res) => {
   const { token, profileName, save, achievements, hintTokens, labyrinth } = req.body ?? {};
   if (typeof token !== 'string' || !PUBLISH_TOKENS.has(token)) {
@@ -370,6 +435,7 @@ app.post('/api/profile/sync', writeLimiter, (req, res) => {
   }
 
   const merged = {
+    displayName: profileName.trim().slice(0, 40),
     save: mergeSave(existing?.save, save),
     achievements: mergeAchievements(existing?.achievements, achievements),
     hintTokens: Math.max(finite(existing?.hintTokens), finite(hintTokens)),

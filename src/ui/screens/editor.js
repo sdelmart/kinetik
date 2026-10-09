@@ -375,14 +375,14 @@ export function editorScreen(app) {
 
   async function publishToCommunity() {
     if (!world) return;
-    const { communityServerUrl, communityToken, communityAuthor } = app.settings;
+    const { communityServerUrl, communityToken } = app.settings;
     if (!communityServerUrl || !communityToken) {
       toast(t('community_publish_missing_config'));
       return;
     }
     const result = await publishCommunityWorld(communityServerUrl, {
       token: communityToken,
-      author: communityAuthor,
+      author: app.communityName(),
       name: world.name,
       world: { id: world.id, accent: world.accent, levels: world.levels },
     });
