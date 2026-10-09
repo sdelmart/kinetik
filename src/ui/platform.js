@@ -8,6 +8,19 @@ export function isNativeApp() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
-export function quitApp() {
+/**
+ * Asks the desktop shell to exit (the `quit_app` command in src-tauri) — the
+ * desktop webview ignores `window.close()`, which is why the button used to
+ * do nothing. Falls back to `window.close()` outside the desktop app.
+ */
+export async function quitApp() {
+  if (isNativeApp()) {
+    try {
+      await window.__TAURI_INTERNALS__.invoke('quit_app');
+      return;
+    } catch {
+      // Fall through to the generic attempt below.
+    }
+  }
   window.close();
 }
