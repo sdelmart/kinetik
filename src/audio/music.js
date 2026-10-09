@@ -5,9 +5,10 @@ import { audioContext, getMusicBus, noise, unlock } from './engine.js';
  * lead phrases, drums) played over a chord progression and laid out by a
  * shared song arrangement — intro, groove, theme, breakdown, peak — so a
  * track builds and changes over a couple of minutes instead of repeating one
- * bar forever. Each pass through the arrangement also shifts key and adds a
- * little randomness (ghost hats, octave jumps, dropped notes), so no two
- * loops are identical. Still no audio files: everything is synthesised.
+ * bar forever. Melody notes are snapped to the chord underneath them so a
+ * phrase stays consonant across the whole progression, and everything goes
+ * through a limiter so the stacked layers never clip. Still no audio files:
+ * everything is synthesised.
  */
 
 const midi = (semitone) => 440 * 2 ** ((semitone - 69) / 12);
@@ -35,9 +36,6 @@ const REPEAT_SECTIONS = ARRANGEMENT.filter((s) => !s.once);
 const barsIn = (sections) => sections.reduce((n, s) => n + s.bars, 0);
 const FIRST_PASS_BARS = barsIn(ARRANGEMENT);
 const REPEAT_PASS_BARS = barsIn(REPEAT_SECTIONS);
-
-/** Each later pass through the song moves to a new key, so repeats don't sound like repeats. */
-const PASS_TRANSPOSE = [0, 5, -2, 3];
 
 /** Where a given bar (counted from the start of the track) falls in the song. */
 export function arrangementPosition(bar) {
@@ -208,29 +206,45 @@ function effects() {
   if (!ctx || !bus) return null;
   if (fx?.ctx === ctx) return fx;
 
+  const out = ctx.createDynamicsCompressor();
+  out.threshold.value = -14;
+  out.knee.value = 8;
+  out.ratio.value = 8;
+  out.attack.value = 0.004;
+  out.release.value = 0.2;
+  const trim = ctx.createGain();
+  trim.gain.value = 0.8;
+  out.connect(trim);
+  trim.connect(bus);
+
   const delay = ctx.createDelay(2);
   const feedback = ctx.createGain();
-  feedback.gain.value = 0.33;
+  feedback.gain.value = 0.22;
   const tone = ctx.createBiquadFilter();
   tone.type = 'lowpass';
   tone.frequency.value = 2800;
   const delayOut = ctx.createGain();
-  delayOut.gain.value = 0.4;
+  delayOut.gain.value = 0.22;
   delay.connect(tone);
   tone.connect(feedback);
   feedback.connect(delay);
   tone.connect(delayOut);
-  delayOut.connect(bus);
+  delayOut.connect(out);
 
   const reverb = ctx.createConvolver();
-  reverb.buffer = impulse(ctx, 2.6);
+  reverb.buffer = impulse(ctx, 1.8);
   const reverbOut = ctx.createGain();
-  reverbOut.gain.value = 0.32;
+  reverbOut.gain.value = 0.16;
   reverb.connect(reverbOut);
   reverbOut.connect(bus);
 
-  fx = { ctx, delay, reverb };
+  fx = { ctx, delay, reverb, out };
   return fx;
+}
+
+/** Everything goes through one limiter so stacked layers can't clip into distortion. */
+function output() {
+  return effects()?.out ?? null;
 }
 
 function send(node, target, amount) {
@@ -245,7 +259,7 @@ function send(node, target, amount) {
 
 function voice({ freq, time, duration, type, gain, filter, attack = 0.012, detune = 0, echo = 0, space = 0 }) {
   const ctx = audioContext();
-  const bus = getMusicBus();
+  const bus = output();
   if (!ctx || !bus) return;
 
   const osc = ctx.createOscillator();
@@ -279,7 +293,7 @@ function voice({ freq, time, duration, type, gain, filter, attack = 0.012, detun
 
 function noiseHit({ time, decay, frequency, gain, type = 'highpass', space = 0 }) {
   const ctx = audioContext();
-  const bus = getMusicBus();
+  const bus = output();
   if (!ctx || !bus) return;
 
   const source = noise();
@@ -302,7 +316,7 @@ function noiseHit({ time, decay, frequency, gain, type = 'highpass', space = 0 }
 
 function kickDrum(time, gain = 0.5) {
   const ctx = audioContext();
-  const bus = getMusicBus();
+  const bus = output();
   if (!ctx || !bus) return;
 
   const osc = ctx.createOscillator();
@@ -320,22 +334,36 @@ function kickDrum(time, gain = 0.5) {
   osc.stop(time + 0.26);
 }
 
-function snareDrum(time, gain = 0.14) {
-  noiseHit({ time, decay: 0.16, frequency: 1800, gain, type: 'bandpass', space: 0.25 });
-  voice({ freq: 190, time, duration: 0.08, type: 'triangle', gain: gain * 0.9 });
+function snareDrum(time, gain = 0.09) {
+  noiseHit({ time, decay: 0.12, frequency: 2200, gain, type: 'bandpass', space: 0.15 });
+  voice({ freq: 185, time, duration: 0.07, type: 'triangle', gain: gain * 0.8 });
 }
 
 function crash(time) {
-  noiseHit({ time, decay: 1.3, frequency: 5200, gain: 0.05, space: 0.4 });
+  noiseHit({ time, decay: 0.9, frequency: 6500, gain: 0.025, space: 0.2 });
 }
 
 function padChord(chord, root, time, duration, brightness) {
   for (const interval of [0, chord.third, 7]) {
     const freq = midi(root + chord.root + interval + 12);
-    for (const detune of [-8, 8]) {
-      voice({ freq, time, duration, type: 'sawtooth', gain: 0.018, filter: brightness, attack: 0.35, detune, space: 0.5 });
+    for (const detune of [-5, 5]) {
+      voice({ freq, time, duration, type: 'triangle', gain: 0.022, filter: brightness, attack: 0.5, detune, space: 0.3 });
     }
   }
+}
+
+/**
+ * Moves a melody note onto the nearest tone of the chord underneath it, so
+ * a phrase written once stays consonant over every chord of the progression.
+ */
+export function snapToChord(note, chord) {
+  const tones = [0, chord.third, 7].map((i) => (((chord.root + i) % 12) + 12) % 12);
+  for (let offset = 0; offset <= 6; offset++) {
+    for (const candidate of [note - offset, note + offset]) {
+      if (tones.includes(((candidate % 12) + 12) % 12)) return candidate;
+    }
+  }
+  return note;
 }
 
 // --- sequencing ------------------------------------------------------------
@@ -344,9 +372,9 @@ const pick = (patterns, variant) => (variant ? (patterns?.[variant] ?? patterns?
 const at = (pattern, index) => (pattern ? pattern[index % pattern.length] : null);
 
 function scheduleStep(track, time) {
-  const { pass, barInPass, section, barInSection } = arrangementPosition(bar);
+  const { barInPass, section, barInSection } = arrangementPosition(bar);
   const layers = section.layers;
-  const root = track.root + PASS_TRANSPOSE[pass % PASS_TRANSPOSE.length];
+  const root = track.root;
   const chord = track.progression[barInPass % track.progression.length];
   const stepSeconds = 60 / track.bpm / 4;
   const sectionStep = barInSection * STEPS_PER_BAR + step;
@@ -378,24 +406,23 @@ function scheduleStep(track, time) {
       time,
       duration: stepSeconds * 1.2,
       type: t.arp,
-      gain: 0.035,
-      filter: 3200,
-      echo: 0.35,
+      gain: 0.028,
+      filter: 2600,
+      echo: 0.2,
     });
   }
 
-  let leadNote = at(pick(track.lead, layers.lead), sectionStep);
-  if (leadNote !== null && Math.random() > 0.06) {
-    if (Math.random() < 0.08) leadNote += 12;
+  const leadNote = at(pick(track.lead, layers.lead), sectionStep);
+  if (leadNote !== null) {
     voice({
-      freq: midi(root + leadNote),
+      freq: midi(root + snapToChord(leadNote, chord)),
       time,
       duration: stepSeconds * 2.2,
       type: t.lead,
-      gain: 0.05,
+      gain: 0.045,
       filter: t.leadFilter,
-      echo: 0.3,
-      space: 0.3,
+      echo: 0.25,
+      space: 0.2,
     });
   }
 
@@ -414,9 +441,9 @@ function scheduleStep(track, time) {
   if (hat || ghost) {
     noiseHit({
       time,
-      decay: hat === 2 ? 0.22 : 0.04,
-      frequency: 7000,
-      gain: ghost ? 0.018 : 0.04 + Math.random() * 0.015,
+      decay: hat === 2 ? 0.18 : 0.035,
+      frequency: 8000,
+      gain: ghost ? 0.012 : 0.028 + Math.random() * 0.01,
     });
   }
 }

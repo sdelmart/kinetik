@@ -140,7 +140,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-  margin: 0 0 22px;
+  margin: 0 0 clamp(12px, 2.5vh, 22px);
 }
 
 @media (max-width: 560px) {
@@ -157,13 +157,13 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--line);
   background: linear-gradient(165deg, rgba(20, 28, 46, 0.9), rgba(10, 14, 24, 0.95));
-  padding: 20px 18px;
+  padding: 16px 18px;
   color: var(--text);
   font: inherit;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 190px;
+  gap: 9px;
+  min-height: 0;
   overflow: hidden;
   transition: transform 0.16s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   --portal-accent: var(--accent);
@@ -187,9 +187,15 @@
   --portal-accent: var(--amber);
 }
 
+.portal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .portal-icon {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   flex: none;
 }
 
@@ -265,7 +271,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 5px;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
 }
 
 .vault-key {
@@ -298,11 +305,6 @@
   white-space: nowrap;
 }
 
-.vault-key-state {
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-}
-
 .vault-key.done {
   color: var(--amber);
 }
@@ -330,13 +332,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
 }
 
 .vault-door {
   position: relative;
-  height: 46px;
+  height: 34px;
   border-radius: 8px;
   background: repeating-linear-gradient(
       135deg,
@@ -442,7 +444,12 @@
 .home-secondary {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px 8px;
   justify-content: center;
-  margin-bottom: 22px;
+  margin-bottom: clamp(10px, 2vh, 22px);
+}
+
+.home-secondary .btn {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }

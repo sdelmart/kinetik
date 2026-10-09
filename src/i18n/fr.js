@@ -7,7 +7,6 @@ export default {
   'home.labyrinth_title': 'Labyrinthe',
   'home.labyrinth_tagline': 'Simulation du dédale médiéval',
   'home.locked_title': 'Accès verrouillé',
-  'home.locked_sectors': '{cleared} / {required} secteurs Sokoban terminés',
   'home.locked_requirement': 'Termine les {required} premiers secteurs du Sokoban pour ouvrir le Labyrinthe.',
   'home.locked_cta': 'Continuer le Sokoban',
   'home.key_done': 'Terminé',

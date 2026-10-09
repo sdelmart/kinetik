@@ -7,7 +7,6 @@ export default {
   'home.labyrinth_title': 'Labyrinth',
   'home.labyrinth_tagline': 'Medieval maze simulation',
   'home.locked_title': 'Access locked',
-  'home.locked_sectors': '{cleared} / {required} Sokoban sectors cleared',
   'home.locked_requirement': 'Clear the first {required} Sokoban sectors to open the Labyrinth.',
   'home.locked_cta': 'Continue Sokoban',
   'home.key_done': 'Cleared',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ARRANGEMENT, MUSIC_TRACKS, arrangementPosition } from '../src/audio/music.js';
+import { ARRANGEMENT, MUSIC_TRACKS, arrangementPosition, snapToChord } from '../src/audio/music.js';
 
 const firstPassBars = ARRANGEMENT.reduce((n, s) => n + s.bars, 0);
 const repeatBars = ARRANGEMENT.filter((s) => !s.once).reduce((n, s) => n + s.bars, 0);
@@ -58,6 +58,37 @@ describe('track definitions', () => {
         for (const pattern of Object.values(track[layer])) expect(pattern, `${track.id}.${layer}`).toHaveLength(16);
       }
       for (const phrase of Object.values(track.lead)) expect(phrase.length % 16, `${track.id}.lead`).toBe(0);
+    }
+  });
+});
+
+describe('snapToChord', () => {
+  const pc = (n) => ((n % 12) + 12) % 12;
+
+  it('leaves chord tones untouched', () => {
+    const aMinor = { root: 0, third: 3 };
+    for (const note of [24, 27, 31, 36]) expect(snapToChord(note, aMinor)).toBe(note);
+  });
+
+  it('moves a clashing note to the nearest chord tone', () => {
+    const fMajorUnderA = { root: -4, third: 4 }; // F A C relative to A
+    expect(snapToChord(31, fMajorUnderA)).toBe(32); // E over F major -> F
+    expect(snapToChord(29, fMajorUnderA)).toBe(27); // D -> C
+  });
+
+  it('only ever lands on a tone of the chord, for every track and chord', () => {
+    for (const track of MUSIC_TRACKS.filter((t) => t.progression)) {
+      for (const chord of track.progression) {
+        const tones = [0, chord.third, 7].map((i) => pc(chord.root + i));
+        for (const phrase of Object.values(track.lead)) {
+          for (const note of phrase) {
+            if (note === null) continue;
+            const snapped = snapToChord(note, chord);
+            expect(tones, `${track.id} ${note}`).toContain(pc(snapped));
+            expect(Math.abs(snapped - note)).toBeLessThanOrEqual(2);
+          }
+        }
+      }
     }
   });
 });

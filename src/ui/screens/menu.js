@@ -8,7 +8,6 @@ import { BUILTIN_WORLDS } from '../../core/worlds.js';
 import { buildContext } from '../../core/achievements.js';
 import {
   isLabyrinthUnlocked,
-  labyrinthSectorsCleared,
   labyrinthUnlockRequirement,
   loadLabyrinthSave,
 } from '../../state/labyrinthSave.js';
@@ -100,8 +99,7 @@ export function menuScreen(app) {
   const sokobanCard = el(
     'button.portal-card.sokoban',
     { type: 'button', onclick: () => app.go('worlds') },
-    sokobanIcon(),
-    el('h2', {}, t('home.sokoban_title'), communityBadge),
+    el('div.portal-head', {}, sokobanIcon(), el('h2', {}, t('home.sokoban_title'), communityBadge)),
     el('p.sub', {}, t('home.sokoban_tagline')),
     el(
       'div.bar',
@@ -113,14 +111,12 @@ export function menuScreen(app) {
   );
 
   const required = labyrinthUnlockRequirement();
-  const cleared = labyrinthSectorsCleared(app);
 
   const labyrinthCard = labUnlocked
     ? el(
         'button.portal-card.labyrinth',
         { type: 'button', onclick: () => app.go('labyrinthMenu') },
-        labyrinthIcon(),
-        el('h2', {}, t('home.labyrinth_title')),
+        el('div.portal-head', {}, labyrinthIcon(), el('h2', {}, t('home.labyrinth_title'))),
         el('p.sub', {}, t('home.labyrinth_tagline')),
         el(
           'div.bar',
@@ -133,8 +129,7 @@ export function menuScreen(app) {
     : el(
         'button.portal-card.labyrinth.locked',
         { type: 'button', onclick: () => app.go('worlds') },
-        labyrinthIcon(),
-        el('h2', {}, t('home.labyrinth_title')),
+        el('div.portal-head', {}, labyrinthIcon(), el('h2', {}, t('home.labyrinth_title'))),
         el(
           'div.vault-seal',
           {},
@@ -147,7 +142,6 @@ export function menuScreen(app) {
           ),
           el('p.vault-requirement', {}, t('home.locked_requirement', { required })),
           vaultKeys(),
-          el('p.sub', {}, t('home.locked_sectors', { cleared, required })),
         ),
         el('span.portal-cta', {}, t('home.locked_cta')),
       );
@@ -166,14 +160,12 @@ export function menuScreen(app) {
       {},
       sectors.map((world, index) => {
         const state = done.has(world.id) ? 'done' : world.id === currentId ? 'current' : 'todo';
+        const label = state === 'todo' ? null : t(state === 'done' ? 'home.key_done' : 'home.key_current');
         return el(
           `li.vault-key.${state}`,
-          {},
+          { title: label },
           el('span.vault-key-mark', {}, state === 'done' ? '✓' : String(index + 1).padStart(2, '0')),
           el('span.vault-key-name', {}, app.worldTitle(world)),
-          state === 'done' || state === 'current'
-            ? el('span.vault-key-state', {}, t(state === 'done' ? 'home.key_done' : 'home.key_current'))
-            : null,
         );
       }),
     );

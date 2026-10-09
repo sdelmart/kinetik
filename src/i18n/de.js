@@ -7,7 +7,6 @@ export default {
   'home.labyrinth_title': 'Labyrinth',
   'home.labyrinth_tagline': 'Mittelalterliche Labyrinth-Simulation',
   'home.locked_title': 'Zugriff gesperrt',
-  'home.locked_sectors': '{cleared} / {required} Sokoban-Sektoren geschafft',
   'home.locked_requirement': 'Schließe die ersten {required} Sokoban-Sektoren ab, um das Labyrinth zu öffnen.',
   'home.locked_cta': 'Sokoban weiterspielen',
   'home.key_done': 'Geschafft',
