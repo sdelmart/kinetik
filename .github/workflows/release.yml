@@ -1,7 +1,8 @@
 name: Release
 
 # Native installers can only be produced on their own OS, so each target builds
-# on a matching runner and uploads its artefact to the release.
+# on a matching runner. Each job hands over only its finished installers, under
+# clear names, and the release gets exactly those — nothing else.
 on:
   push:
     tags: ['v*']
@@ -20,6 +21,8 @@ jobs:
       - run: npm test
       - run: npm run calibrate
 
+  # The browser build stays available as a workflow artifact (Actions tab),
+  # but isn't attached to the release: players only need the installers.
   web:
     needs: test
     runs-on: ubuntu-latest
@@ -51,6 +54,8 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             label: macos-intel
+          # Built on the oldest supported Ubuntu so the Linux binaries link
+          # against an old glibc and run on newer distributions too.
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: linux-x64
@@ -89,17 +94,40 @@ jobs:
       - name: Build installers
         run: npx tauri build --target ${{ matrix.target }}
 
+      - name: Collect installers under clear names
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          bundle="src-tauri/target/${{ matrix.target }}/release/bundle"
+          mkdir -p out
+          case "${{ matrix.label }}" in
+            macos-arm64)
+              cp "$bundle"/dmg/*.dmg "out/KINETIK-${version}-macOS-AppleSilicon.dmg" ;;
+            macos-intel)
+              cp "$bundle"/dmg/*.dmg "out/KINETIK-${version}-macOS-Intel.dmg" ;;
+            windows-x64)
+              cp "$bundle"/nsis/*-setup.exe "out/KINETIK-${version}-Windows-Setup.exe" ;;
+            linux-x64)
+              cp "$bundle"/appimage/*.AppImage "out/KINETIK-${version}-Linux-x86_64.AppImage"
+              cp "$bundle"/deb/*.deb "out/KINETIK-${version}-Linux-x86_64.deb"
+              # Portable archive: the executable itself, ready to run on any distro.
+              portable="KINETIK-${version}-Linux-x86_64"
+              mkdir -p "$portable"
+              cp "src-tauri/target/${{ matrix.target }}/release/kinetik" "$portable/kinetik"
+              cp src-tauri/icons/icon.png "$portable/kinetik.png"
+              cp packaging/linux/README.txt packaging/linux/install.sh "$portable/"
+              chmod +x "$portable/kinetik" "$portable/install.sh"
+              tar -czf "out/${portable}.tar.gz" "$portable"
+              ;;
+          esac
+          ls -la out
+
       - uses: actions/upload-artifact@v4
         with:
-          name: kinetik-${{ matrix.label }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*-setup.exe
-          if-no-files-found: warn
+          name: installer-${{ matrix.label }}
+          path: out/*
+          if-no-files-found: error
 
   publish:
     needs: [web, desktop]
@@ -110,8 +138,29 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          pattern: installer-*
+          path: release
+          merge-multiple: true
+      - run: ls -la release
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
+          files: release/*
           generate_release_notes: true
+          body: |
+            ## Télécharger KINETIK
+
+            | Système | Fichier |
+            |---|---|
+            | macOS — puces Apple (M1, M2, M3, M4) | `KINETIK-…-macOS-AppleSilicon.dmg` |
+            | macOS — processeur Intel | `KINETIK-…-macOS-Intel.dmg` |
+            | Windows | `KINETIK-…-Windows-Setup.exe` |
+            | Linux — toutes distributions | `KINETIK-…-Linux-x86_64.tar.gz` (exécutable direct) |
+            | Linux — fichier unique | `KINETIK-…-Linux-x86_64.AppImage` |
+            | Ubuntu, Debian, Mint, Pop!_OS | `KINETIK-…-Linux-x86_64.deb` |
+
+            **macOS** : si le Mac dit que l'app est « endommagée », glisse-la dans Applications puis lance dans le Terminal :
+            `xattr -cr /Applications/KINETIK.app`
+
+            **Linux (.tar.gz)** : `tar xzf KINETIK-*-Linux-x86_64.tar.gz`, puis `./kinetik` dans le dossier obtenu, ou `./install.sh` pour l'ajouter au menu des applications. Le README inclus liste la dépendance WebKitGTK par distribution.
+
+            **Linux (.AppImage)** : `chmod +x KINETIK-*.AppImage` puis lance-le.

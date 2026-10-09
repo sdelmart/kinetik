@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "msi", "nsis", "app", "dmg"],
+    "targets": ["deb", "appimage", "nsis", "app", "dmg"],
     "icon": ["icons/icon.png", "icons/icon.ico"],
     "category": "Game",
     "shortDescription": "Puzzle industriel de tri de conteneurs",
