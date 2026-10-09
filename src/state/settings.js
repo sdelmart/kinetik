@@ -27,7 +27,7 @@ export const DEFAULT_SETTINGS = {
   },
   musicVolume: 55,
   sfxVolume: 70,
-  musicTrack: 'pulse',
+  musicTrack: 'shuffle',
   muted: false,
   language: 'fr',
   accentColor: ACCENT_PRESETS[0].color,

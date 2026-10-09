@@ -9,30 +9,12 @@
   user-select: none;
 }
 
-.intro-stage {
-  position: absolute;
-  inset: 0;
-  transform-origin: 50% 50%;
-  transition: transform 0.95s cubic-bezier(0.55, 0, 0.85, 0.35), filter 0.95s ease-in;
-  will-change: transform, filter;
-}
-
-.intro-shard {
+.intro-surface {
   position: absolute;
   inset: 0;
   background:
     radial-gradient(120% 90% at 50% 40%, rgba(0, 229, 255, 0.05), transparent 60%),
     linear-gradient(160deg, #0b1220 0%, #060911 55%, #04060b 100%);
-  transition: transform 0.78s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.78s ease 0.1s;
-  will-change: transform;
-}
-
-.intro-shard.left {
-  box-shadow: inset -1px 0 0 rgba(0, 229, 255, 0.08);
-}
-
-.intro-shard.right {
-  box-shadow: inset 1px 0 0 rgba(0, 229, 255, 0.08);
 }
 
 .intro-crack {
@@ -84,62 +66,44 @@
   transition: opacity 0.2s ease;
 }
 
-.intro-hint.hidden {
-  opacity: 0;
-}
-
 @keyframes hint-breathe {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.9; }
 }
 
-.intro-screen.breaking .intro-stage {
-  transform: scale(22);
-  filter: blur(3px) brightness(1.8);
-}
-
-.intro-screen.breaking .intro-shard.left {
-  transform: translate(-70%, -4%) rotate(-4deg);
-}
-
-.intro-screen.breaking .intro-shard.right {
-  transform: translate(70%, 4%) rotate(4deg);
-}
-
-.intro-screen.breaking .intro-crack {
-  animation: crack-flash 0.6s ease-in forwards;
-}
-
-@keyframes crack-flash {
-  0% { opacity: 1; }
-  30% { opacity: 1; filter: brightness(2.4); }
-  100% { opacity: 0; filter: brightness(4); }
-}
-
-/* A burst of light from the gap itself, timed to peak as the zoom finishes —
-   sells "passing through" rather than just "the screen broke". */
-.intro-flash {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.intro-screen.breaking .intro-title,
+.intro-screen.breaking .intro-hint {
   opacity: 0;
-  background: radial-gradient(
-    circle at 50% 46%,
-    #ffffff 0%,
-    var(--accent) 35%,
-    color-mix(in srgb, var(--accent) 40%, transparent) 55%,
-    transparent 75%
-  );
+  animation: none;
+  transition: opacity 0.12s ease;
 }
 
-.intro-screen.breaking .intro-flash {
-  animation: flash-burst 0.95s cubic-bezier(0.3, 0, 0.6, 1) forwards;
+/* The 3D transition (see src/ui/introTransition.js) draws over everything. */
+.intro-transition {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  pointer-events: none;
 }
 
-@keyframes flash-burst {
-  0%, 45% { opacity: 0; transform: scale(0.15); }
-  80% { opacity: 1; transform: scale(1.4); }
-  100% { opacity: 1; transform: scale(2.4); }
+/* The destination screen surfacing at the end of the dive. */
+.screen-emerge {
+  animation: screen-emerge 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes screen-emerge {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
 }
 
 .intro-title {
@@ -168,10 +132,6 @@
   font-family: var(--font-mono);
   font-size: 0.74rem;
   letter-spacing: 0.08em;
-}
-
-.intro-title.hidden {
-  opacity: 0;
 }
 
 /* ---------- Home: the two portals ---------- */
@@ -280,12 +240,89 @@
 /* ---------- Home: the vault seal (locked Labyrinth) ---------- */
 
 .portal-card.locked {
-  cursor: default;
   --portal-accent: var(--text-faint);
 }
 
 .portal-card.locked:hover {
-  transform: none;
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.portal-card.locked .portal-cta {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 45%, transparent);
+}
+
+.vault-requirement {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.vault-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.vault-key {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.vault-key-mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.66rem;
+}
+
+.vault-key-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-key-state {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.vault-key.done {
+  color: var(--amber);
+}
+
+.vault-key.done .vault-key-mark {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #15181f;
+  font-weight: 700;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--amber) 55%, transparent);
+}
+
+.vault-key.current {
+  color: var(--text);
+}
+
+.vault-key.current .vault-key-mark {
+  border-color: var(--amber);
+  color: var(--amber);
+  animation: vault-blink 1.6s ease-in-out infinite;
 }
 
 .vault-seal {
@@ -299,7 +336,7 @@
 
 .vault-door {
   position: relative;
-  height: 64px;
+  height: 46px;
   border-radius: 8px;
   background: repeating-linear-gradient(
       135deg,

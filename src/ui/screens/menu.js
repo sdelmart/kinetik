@@ -131,8 +131,8 @@ export function menuScreen(app) {
         el('span.portal-cta', {}, t('lab.title')),
       )
     : el(
-        'div.portal-card.labyrinth.locked',
-        {},
+        'button.portal-card.labyrinth.locked',
+        { type: 'button', onclick: () => app.go('worlds') },
         labyrinthIcon(),
         el('h2', {}, t('home.labyrinth_title')),
         el(
@@ -145,10 +145,39 @@ export function menuScreen(app) {
             el('span.dot'),
             el('span', {}, t('home.locked_title')),
           ),
+          el('p.vault-requirement', {}, t('home.locked_requirement', { required })),
+          vaultKeys(),
           el('p.sub', {}, t('home.locked_sectors', { cleared, required })),
-          el('div.bar', {}, el('i', { style: { width: `${(cleared / required) * 100}%` } })),
         ),
+        el('span.portal-cta', {}, t('home.locked_cta')),
       );
+
+  /**
+   * One "key" per Sokoban sector the vault needs. Sectors unlock in order, so
+   * the first `required` sectors are exactly the ones that open it — naming
+   * them tells the player what to do instead of just how far they are.
+   */
+  function vaultKeys() {
+    const done = new Set(buildContext(app).sectorsComplete);
+    const sectors = BUILTIN_WORLDS.slice(0, required);
+    const currentId = sectors.find((w) => !done.has(w.id))?.id;
+    return el(
+      'ol.vault-keys',
+      {},
+      sectors.map((world, index) => {
+        const state = done.has(world.id) ? 'done' : world.id === currentId ? 'current' : 'todo';
+        return el(
+          `li.vault-key.${state}`,
+          {},
+          el('span.vault-key-mark', {}, state === 'done' ? '✓' : String(index + 1).padStart(2, '0')),
+          el('span.vault-key-name', {}, app.worldTitle(world)),
+          state === 'done' || state === 'current'
+            ? el('span.vault-key-state', {}, t(state === 'done' ? 'home.key_done' : 'home.key_current'))
+            : null,
+        );
+      }),
+    );
+  }
 
   const element = el(
     'div.screen',

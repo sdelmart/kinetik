@@ -1,77 +1,249 @@
 import { audioContext, getMusicBus, noise, unlock } from './engine.js';
 
 /**
- * Procedural music. Each track is a small pattern definition played by a
- * look-ahead scheduler, so the loops never need audio files and can run
- * indefinitely without a seam.
+ * Procedural music. Each track is a set of short patterns (bass, arpeggio,
+ * lead phrases, drums) played over a chord progression and laid out by a
+ * shared song arrangement — intro, groove, theme, breakdown, peak — so a
+ * track builds and changes over a couple of minutes instead of repeating one
+ * bar forever. Each pass through the arrangement also shifts key and adds a
+ * little randomness (ghost hats, octave jumps, dropped notes), so no two
+ * loops are identical. Still no audio files: everything is synthesised.
  */
 
-const SCALE = [0, 3, 5, 7, 10]; // minor pentatonic, forgiving under any rhythm
 const midi = (semitone) => 440 * 2 ** ((semitone - 69) / 12);
+const _ = null;
+
+const minor = (root) => ({ root, third: 3 });
+const major = (root) => ({ root, third: 4 });
+
+/**
+ * Which layers play in each section, and which pattern variant ('a' / 'b')
+ * they use. A missing layer is silent. `once` sections only open the very
+ * first pass; `fill` sections end on a snare roll into the next section.
+ */
+export const ARRANGEMENT = [
+  { name: 'intro', bars: 4, once: true, layers: { pad: 'a', hat: 'a' } },
+  { name: 'build', bars: 4, layers: { pad: 'a', arp: 'a', hat: 'a', kick: 'b' }, fill: true },
+  { name: 'groove', bars: 8, layers: { bass: 'a', arp: 'a', kick: 'a', snare: 'a', hat: 'a' }, fill: true },
+  { name: 'theme', bars: 8, layers: { bass: 'a', pad: 'a', lead: 'a', kick: 'a', snare: 'a', hat: 'a' }, fill: true },
+  { name: 'breakdown', bars: 4, layers: { pad: 'a', arp: 'b', lead: 'b' } },
+  { name: 'peak', bars: 8, layers: { bass: 'b', pad: 'a', arp: 'b', lead: 'b', kick: 'a', snare: 'a', hat: 'b' }, fill: true },
+  { name: 'cooldown', bars: 4, layers: { bass: 'a', pad: 'a', kick: 'b', hat: 'a' } },
+];
+
+const REPEAT_SECTIONS = ARRANGEMENT.filter((s) => !s.once);
+const barsIn = (sections) => sections.reduce((n, s) => n + s.bars, 0);
+const FIRST_PASS_BARS = barsIn(ARRANGEMENT);
+const REPEAT_PASS_BARS = barsIn(REPEAT_SECTIONS);
+
+/** Each later pass through the song moves to a new key, so repeats don't sound like repeats. */
+const PASS_TRANSPOSE = [0, 5, -2, 3];
+
+/** Where a given bar (counted from the start of the track) falls in the song. */
+export function arrangementPosition(bar) {
+  let pass = 0;
+  let barInPass = bar;
+  let sections = ARRANGEMENT;
+  if (bar >= FIRST_PASS_BARS) {
+    const k = bar - FIRST_PASS_BARS;
+    pass = 1 + Math.floor(k / REPEAT_PASS_BARS);
+    barInPass = k % REPEAT_PASS_BARS;
+    sections = REPEAT_SECTIONS;
+  }
+  let start = 0;
+  for (const section of sections) {
+    if (barInPass < start + section.bars) {
+      return { pass, barInPass, section, barInSection: barInPass - start };
+    }
+    start += section.bars;
+  }
+  return { pass, barInPass, section: sections[sections.length - 1], barInSection: 0 };
+}
 
 export const MUSIC_TRACKS = [
+  { id: 'shuffle', shuffle: true },
   {
     id: 'pulse',
     bpm: 112,
     root: 45,
-    steps: 16,
-    bass: [0, null, 0, null, 3, null, 0, null, 5, null, 3, null, 0, null, -2, null],
-    lead: [12, null, 15, 17, null, 12, null, 19, null, 17, 15, null, 12, null, null, 10],
-    kick: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0],
-    hat: [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+    progression: [minor(0), major(-4), major(3), major(-2)],
+    timbre: { bass: 'sawtooth', bassFilter: 560, lead: 'square', leadFilter: 2400, arp: 'triangle', pad: 1100 },
+    bass: {
+      a: [0, _, 0, _, 12, _, 0, _, 0, _, 0, _, 12, _, 7, _],
+      b: [0, 0, 12, 0, 0, 0, 12, 0, 0, 0, 12, 0, 7, 7, 12, _],
+    },
+    arp: {
+      a: [0, 2, 3, 2, 1, 2, 3, 2, 0, 2, 3, 4, 3, 2, 1, 2],
+      b: [0, _, 3, _, 2, _, 4, _, 0, _, 3, _, 2, 4, 3, 2],
+    },
+    lead: {
+      a: [24, _, _, 27, _, 29, _, 31, _, _, 29, _, 27, _, 24, _, 22, _, _, 24, _, 27, _, _, 29, _, 27, _, 24, _, _, _],
+      b: [31, _, 34, _, 36, _, 34, 31, _, 29, _, 31, _, 27, _, _, 29, _, 31, _, 34, _, 31, _, 29, _, 27, _, 24, _, _, _],
+    },
+    kick: { a: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], b: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] },
+    snare: { a: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0] },
+    hat: { a: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0], b: [1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1] },
   },
   {
     id: 'drift',
     bpm: 84,
     root: 41,
-    steps: 16,
-    bass: [0, null, null, null, 5, null, null, null, 3, null, null, null, 7, null, null, null],
-    lead: [19, null, null, 17, null, null, 15, null, null, 12, null, null, 15, null, 17, null],
-    kick: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-    hat: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+    progression: [minor(0), minor(5), major(-4), minor(7)],
+    timbre: { bass: 'triangle', bassFilter: 420, lead: 'triangle', leadFilter: 1800, arp: 'sine', pad: 900 },
+    bass: {
+      a: [0, _, _, _, _, _, _, _, 7, _, _, _, _, _, _, _],
+      b: [0, _, _, 0, _, _, 12, _, 7, _, _, 7, _, _, 5, _],
+    },
+    arp: {
+      a: [0, _, 2, _, 3, _, 2, _, 1, _, 2, _, 3, _, 4, _],
+      b: [0, 2, 3, 4, 3, 2, 1, 2, 0, 2, 3, 4, 3, 2, 4, 3],
+    },
+    lead: {
+      a: [_, _, 24, _, _, _, 27, _, 29, _, _, _, 27, _, _, _, _, _, 31, _, 29, _, 27, _, 24, _, _, _, _, _, _, _],
+      b: [36, _, _, 34, _, _, 31, _, _, _, 29, _, 31, _, _, _, 34, _, _, 31, _, _, 29, _, 27, _, _, _, 24, _, _, _],
+    },
+    kick: { a: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0], b: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    snare: { a: [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] },
+    hat: { a: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0], b: [1, 0, 1, 1, 1, 0, 2, 0, 1, 0, 1, 1, 1, 0, 2, 0] },
   },
   {
     id: 'forge',
     bpm: 138,
     root: 38,
-    steps: 16,
-    bass: [0, 0, null, 0, 3, null, 3, null, 5, 5, null, 5, 7, null, 10, null],
-    lead: [null, 24, null, 22, null, 19, null, 22, null, 24, null, 27, null, 22, null, 19],
-    kick: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
-    hat: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+    progression: [minor(0), minor(0), major(-4), major(-2)],
+    timbre: { bass: 'sawtooth', bassFilter: 720, lead: 'sawtooth', leadFilter: 2200, arp: 'square', pad: 1300 },
+    bass: {
+      a: [0, 0, _, 0, 0, _, 0, _, 0, 0, _, 0, 12, _, 0, _],
+      b: [0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 0, 12, 7, 12, 7, 12],
+    },
+    arp: {
+      a: [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3],
+      b: [3, 2, 1, 0, 3, 2, 1, 0, 4, 3, 2, 1, 4, 3, 2, 1],
+    },
+    lead: {
+      a: [24, _, 24, _, 27, _, 24, _, 29, _, _, 27, _, 24, _, _, 24, _, 24, _, 27, _, 29, _, 31, _, _, 29, _, 27, _, _],
+      b: [36, _, _, 34, 36, _, 31, _, 34, _, _, 31, 29, _, 27, _, 29, _, 31, _, 34, _, 36, _, 39, _, 36, _, 34, _, 31, _],
+    },
+    kick: { a: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0], b: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] },
+    snare: { a: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1] },
+    hat: { a: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], b: [1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 1, 1] },
   },
   {
     id: 'vapor',
     bpm: 70,
     root: 44,
-    steps: 16,
-    bass: [0, null, null, null, null, null, 7, null, 5, null, null, null, null, null, 3, null],
-    lead: [24, null, 22, null, 19, null, 17, null, 19, null, 22, null, 24, null, 27, null],
-    kick: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    hat: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    progression: [minor(0), minor(5), major(-2), major(3)],
+    timbre: { bass: 'triangle', bassFilter: 380, lead: 'triangle', leadFilter: 1500, arp: 'sine', pad: 800 },
+    bass: {
+      a: [0, _, _, _, _, _, _, _, _, _, _, _, _, _, 7, _],
+      b: [0, _, _, _, _, _, 12, _, _, _, 7, _, _, _, _, _],
+    },
+    arp: {
+      a: [0, _, _, 2, _, _, 3, _, _, 4, _, _, 3, _, _, _],
+      b: [0, _, 2, _, 3, _, 4, _, 3, _, 2, _, 1, _, 2, _],
+    },
+    lead: {
+      a: [36, _, _, _, 34, _, _, _, 31, _, _, _, 29, _, 31, _, 34, _, _, _, _, _, _, _, 27, _, 29, _, 31, _, _, _],
+      b: [31, _, 34, _, 36, _, _, _, 39, _, 36, _, 34, _, _, _, 31, _, _, 29, _, _, 27, _, 29, _, _, _, _, _, _, _],
+    },
+    kick: { a: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], b: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0] },
+    snare: { a: [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0] },
+    hat: { a: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], b: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 2, 0] },
   },
   {
     id: 'grind',
     bpm: 152,
     root: 33,
-    steps: 16,
-    bass: [0, 0, 0, null, 0, 0, null, 0, 3, 3, null, 3, 5, null, 7, 7],
-    lead: [null, null, 19, null, null, 17, null, null, 15, null, null, 19, null, 22, null, null],
-    kick: [1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0],
-    hat: [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+    progression: [minor(0), major(1), minor(0), major(-2)],
+    timbre: { bass: 'square', bassFilter: 620, lead: 'sawtooth', leadFilter: 2600, arp: 'square', pad: 1200 },
+    bass: {
+      a: [0, 0, 0, _, 0, 0, _, 0, 0, 0, 0, _, 12, _, 0, 0],
+      b: [0, 12, 0, 0, 12, 0, 0, 12, 0, 12, 0, 0, 12, 0, 7, 7],
+    },
+    arp: {
+      a: [0, _, 1, _, 2, _, 1, _, 0, _, 1, _, 2, _, 3, _],
+      b: [0, 1, 2, 1, 0, 1, 2, 3, 0, 1, 2, 1, 4, 3, 2, 1],
+    },
+    lead: {
+      a: [_, _, 24, _, _, 25, _, _, 24, _, _, _, 22, _, _, _, _, _, 24, _, _, 27, _, _, 25, _, 24, _, 22, _, _, _],
+      b: [36, _, 37, _, 36, _, 34, _, 32, _, 34, _, 36, _, _, _, 39, _, 37, _, 36, _, 34, _, 37, _, 36, _, 34, _, 32, _],
+    },
+    kick: { a: [1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0], b: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0] },
+    snare: { a: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0] },
+    hat: { a: [1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1], b: [1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 2, 2, 1] },
   },
   { id: 'silence', silent: true },
 ];
 
+const PLAYABLE = MUSIC_TRACKS.filter((t) => !t.silent && !t.shuffle);
+
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD = 0.2;
+const STEPS_PER_BAR = 16;
 
 let timer = null;
+let requestedId = null;
 let activeTrack = null;
 let nextNoteTime = 0;
-let stepIndex = 0;
+let bar = 0;
+let step = 0;
 
-function voice({ freq, time, duration, type, gain, filter }) {
+// --- effects: one echo and one reverb send, shared by every voice ---------
+
+let fx = null;
+
+function impulse(ctx, seconds) {
+  const length = Math.floor(ctx.sampleRate * seconds);
+  const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let channel = 0; channel < 2; channel++) {
+    const data = buffer.getChannelData(channel);
+    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3;
+  }
+  return buffer;
+}
+
+function effects() {
+  const ctx = audioContext();
+  const bus = getMusicBus();
+  if (!ctx || !bus) return null;
+  if (fx?.ctx === ctx) return fx;
+
+  const delay = ctx.createDelay(2);
+  const feedback = ctx.createGain();
+  feedback.gain.value = 0.33;
+  const tone = ctx.createBiquadFilter();
+  tone.type = 'lowpass';
+  tone.frequency.value = 2800;
+  const delayOut = ctx.createGain();
+  delayOut.gain.value = 0.4;
+  delay.connect(tone);
+  tone.connect(feedback);
+  feedback.connect(delay);
+  tone.connect(delayOut);
+  delayOut.connect(bus);
+
+  const reverb = ctx.createConvolver();
+  reverb.buffer = impulse(ctx, 2.6);
+  const reverbOut = ctx.createGain();
+  reverbOut.gain.value = 0.32;
+  reverb.connect(reverbOut);
+  reverbOut.connect(bus);
+
+  fx = { ctx, delay, reverb };
+  return fx;
+}
+
+function send(node, target, amount) {
+  if (!target || !amount) return;
+  const gain = node.context.createGain();
+  gain.gain.value = amount;
+  node.connect(gain);
+  gain.connect(target);
+}
+
+// --- instruments -----------------------------------------------------------
+
+function voice({ freq, time, duration, type, gain, filter, attack = 0.012, detune = 0, echo = 0, space = 0 }) {
   const ctx = audioContext();
   const bus = getMusicBus();
   if (!ctx || !bus) return;
@@ -79,10 +251,11 @@ function voice({ freq, time, duration, type, gain, filter }) {
   const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.value = freq;
+  osc.detune.value = detune;
 
   const amp = ctx.createGain();
   amp.gain.setValueAtTime(0.0001, time);
-  amp.gain.exponentialRampToValueAtTime(gain, time + 0.015);
+  amp.gain.exponentialRampToValueAtTime(gain, time + attack);
   amp.gain.exponentialRampToValueAtTime(0.0001, time + duration);
 
   let node = osc;
@@ -96,11 +269,15 @@ function voice({ freq, time, duration, type, gain, filter }) {
   node.connect(amp);
   amp.connect(bus);
 
+  const sends = effects();
+  send(amp, sends?.delay, echo);
+  send(amp, sends?.reverb, space);
+
   osc.start(time);
   osc.stop(time + duration + 0.05);
 }
 
-function percussion({ time, decay, frequency, gain, highpass }) {
+function noiseHit({ time, decay, frequency, gain, type = 'highpass', space = 0 }) {
   const ctx = audioContext();
   const bus = getMusicBus();
   if (!ctx || !bus) return;
@@ -108,7 +285,7 @@ function percussion({ time, decay, frequency, gain, highpass }) {
   const source = noise();
   if (!source) return;
   const filter = ctx.createBiquadFilter();
-  filter.type = highpass ? 'highpass' : 'lowpass';
+  filter.type = type;
   filter.frequency.value = frequency;
 
   const amp = ctx.createGain();
@@ -118,11 +295,12 @@ function percussion({ time, decay, frequency, gain, highpass }) {
   source.connect(filter);
   filter.connect(amp);
   amp.connect(bus);
+  send(amp, effects()?.reverb, space);
   source.start(time);
   source.stop(time + decay + 0.02);
 }
 
-function kickDrum(time) {
+function kickDrum(time, gain = 0.5) {
   const ctx = audioContext();
   const bus = getMusicBus();
   if (!ctx || !bus) return;
@@ -133,7 +311,7 @@ function kickDrum(time) {
   osc.frequency.exponentialRampToValueAtTime(42, time + 0.11);
 
   const amp = ctx.createGain();
-  amp.gain.setValueAtTime(0.5, time);
+  amp.gain.setValueAtTime(gain, time);
   amp.gain.exponentialRampToValueAtTime(0.0001, time + 0.24);
 
   osc.connect(amp);
@@ -142,65 +320,154 @@ function kickDrum(time) {
   osc.stop(time + 0.26);
 }
 
-function scheduleStep(track, index, time) {
-  const bass = track.bass[index];
-  if (bass !== null && bass !== undefined) {
+function snareDrum(time, gain = 0.14) {
+  noiseHit({ time, decay: 0.16, frequency: 1800, gain, type: 'bandpass', space: 0.25 });
+  voice({ freq: 190, time, duration: 0.08, type: 'triangle', gain: gain * 0.9 });
+}
+
+function crash(time) {
+  noiseHit({ time, decay: 1.3, frequency: 5200, gain: 0.05, space: 0.4 });
+}
+
+function padChord(chord, root, time, duration, brightness) {
+  for (const interval of [0, chord.third, 7]) {
+    const freq = midi(root + chord.root + interval + 12);
+    for (const detune of [-8, 8]) {
+      voice({ freq, time, duration, type: 'sawtooth', gain: 0.018, filter: brightness, attack: 0.35, detune, space: 0.5 });
+    }
+  }
+}
+
+// --- sequencing ------------------------------------------------------------
+
+const pick = (patterns, variant) => (variant ? (patterns?.[variant] ?? patterns?.a ?? null) : null);
+const at = (pattern, index) => (pattern ? pattern[index % pattern.length] : null);
+
+function scheduleStep(track, time) {
+  const { pass, barInPass, section, barInSection } = arrangementPosition(bar);
+  const layers = section.layers;
+  const root = track.root + PASS_TRANSPOSE[pass % PASS_TRANSPOSE.length];
+  const chord = track.progression[barInPass % track.progression.length];
+  const stepSeconds = 60 / track.bpm / 4;
+  const sectionStep = barInSection * STEPS_PER_BAR + step;
+  const t = track.timbre;
+
+  if (barInSection === 0 && step === 0 && bar > 0 && layers.kick) crash(time);
+
+  if (layers.pad && step === 0) {
+    padChord(chord, root, time, stepSeconds * STEPS_PER_BAR * 1.05, t.pad);
+  }
+
+  const bassNote = at(pick(track.bass, layers.bass), step);
+  if (bassNote !== null) {
     voice({
-      freq: midi(track.root + bass),
+      freq: midi(root + chord.root + bassNote),
       time,
-      duration: 0.28,
-      type: 'sawtooth',
-      gain: 0.16,
-      filter: 520,
+      duration: stepSeconds * 1.8,
+      type: t.bass,
+      gain: 0.15,
+      filter: t.bassFilter,
     });
   }
 
-  const lead = track.lead[index];
-  if (lead !== null && lead !== undefined) {
+  const arpIndex = at(pick(track.arp, layers.arp), step);
+  if (arpIndex !== null) {
+    const tones = [0, chord.third, 7, 12, chord.third + 12];
     voice({
-      freq: midi(track.root + lead),
+      freq: midi(root + chord.root + 24 + tones[arpIndex % tones.length]),
       time,
-      duration: 0.22,
-      type: 'square',
-      gain: 0.055,
-      filter: 2600,
+      duration: stepSeconds * 1.2,
+      type: t.arp,
+      gain: 0.035,
+      filter: 3200,
+      echo: 0.35,
     });
   }
 
-  if (track.kick[index]) kickDrum(time);
-  if (track.hat[index]) {
-    percussion({ time, decay: 0.04, frequency: 7000, gain: 0.05, highpass: true });
+  let leadNote = at(pick(track.lead, layers.lead), sectionStep);
+  if (leadNote !== null && Math.random() > 0.06) {
+    if (Math.random() < 0.08) leadNote += 12;
+    voice({
+      freq: midi(root + leadNote),
+      time,
+      duration: stepSeconds * 2.2,
+      type: t.lead,
+      gain: 0.05,
+      filter: t.leadFilter,
+      echo: 0.3,
+      space: 0.3,
+    });
   }
+
+  // Last beat of a `fill` section: snare roll into the next one, kick drops out.
+  if (section.fill && barInSection === section.bars - 1 && step >= 12) {
+    snareDrum(time, 0.06 + (step - 12) * 0.03);
+    if (step === 12) kickDrum(time);
+    return;
+  }
+
+  if (at(pick(track.kick, layers.kick), step)) kickDrum(time);
+  if (at(pick(track.snare, layers.snare), step)) snareDrum(time);
+
+  const hat = at(pick(track.hat, layers.hat), step) ?? 0;
+  const ghost = layers.hat === 'b' && !hat && Math.random() < 0.15;
+  if (hat || ghost) {
+    noiseHit({
+      time,
+      decay: hat === 2 ? 0.22 : 0.04,
+      frequency: 7000,
+      gain: ghost ? 0.018 : 0.04 + Math.random() * 0.015,
+    });
+  }
+}
+
+function startTrack(track, ctx, time, skipIntro = false) {
+  activeTrack = track;
+  bar = skipIntro ? FIRST_PASS_BARS : 0;
+  step = 0;
+  nextNoteTime = time;
+  effects()?.delay.delayTime.setValueAtTime((60 / track.bpm) * 0.75, time);
+}
+
+function randomOther(current) {
+  const choices = PLAYABLE.filter((t) => t !== current);
+  return choices[Math.floor(Math.random() * choices.length)];
 }
 
 function tick() {
   const ctx = audioContext();
   if (!ctx || !activeTrack) return;
 
-  const stepDuration = 60 / activeTrack.bpm / 4;
   while (nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD) {
-    scheduleStep(activeTrack, stepIndex % activeTrack.steps, nextNoteTime);
-    stepIndex++;
-    nextNoteTime += stepDuration;
+    scheduleStep(activeTrack, nextNoteTime);
+    nextNoteTime += 60 / activeTrack.bpm / 4;
+    step++;
+    if (step === STEPS_PER_BAR) {
+      step = 0;
+      bar++;
+      // Shuffle: hand over to another track each time one finishes a full pass.
+      if (requestedId === 'shuffle' && arrangementPosition(bar).barInPass === 0) {
+        startTrack(randomOther(activeTrack), ctx, nextNoteTime, true);
+      }
+    }
   }
 }
 
 export function playTrack(id) {
   const track = MUSIC_TRACKS.find((t) => t.id === id) ?? MUSIC_TRACKS[0];
-  if (activeTrack?.id === track.id) return;
+  if (requestedId === track.id && (timer || track.silent)) return;
 
   stopMusic();
-  if (track.silent) {
-    activeTrack = track;
+  requestedId = track.id;
+  if (track.silent) return;
+
+  const ctx = unlock();
+  if (!ctx) {
+    requestedId = null;
     return;
   }
 
-  const ctx = unlock();
-  if (!ctx) return;
-
-  activeTrack = track;
-  stepIndex = 0;
-  nextNoteTime = ctx.currentTime + 0.08;
+  startTrack(track.shuffle ? randomOther(null) : track, ctx, ctx.currentTime + 0.08);
   tick();
   timer = setInterval(tick, LOOKAHEAD_MS);
 }
@@ -209,6 +476,7 @@ export function stopMusic() {
   if (timer) clearInterval(timer);
   timer = null;
   activeTrack = null;
+  requestedId = null;
 }
 
-export const currentTrackId = () => activeTrack?.id ?? null;
+export const currentTrackId = () => requestedId;

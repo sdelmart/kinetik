@@ -50,7 +50,41 @@ function burst({ duration = 0.12, frequency = 1800, gain = 0.15, highpass = fals
   source.stop(start + duration + 0.02);
 }
 
+/** Band-passed noise whose centre frequency glides — a rush of air. */
+function whoosh({ from, to, duration, gain = 0.12, delay = 0 }) {
+  const ctx = audioContext();
+  const bus = getSfxBus();
+  if (!ctx || !bus) return;
+
+  const start = ctx.currentTime + delay;
+  const source = noise();
+  if (!source) return;
+  source.loop = true;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.Q.value = 1.4;
+  filter.frequency.setValueAtTime(from, start);
+  filter.frequency.exponentialRampToValueAtTime(to, start + duration);
+
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(0.0001, start);
+  amp.gain.exponentialRampToValueAtTime(gain, start + duration * 0.7);
+  amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  source.connect(filter);
+  filter.connect(amp);
+  amp.connect(bus);
+  source.start(start);
+  source.stop(start + duration + 0.02);
+}
+
 export const sfx = {
+  dive: () => {
+    burst({ duration: 0.35, frequency: 3800, gain: 0.12, highpass: true, delay: 0.16 });
+    tone({ type: 'sine', from: 120, to: 38, duration: 0.9, gain: 0.18, delay: 0.16 });
+    whoosh({ from: 300, to: 4200, duration: 1.15, gain: 0.16, delay: 0.2 });
+  },
   move: () => tone({ type: 'triangle', from: 320, to: 260, duration: 0.05, gain: 0.05 }),
   push: () => {
     tone({ type: 'sawtooth', from: 180, to: 120, duration: 0.11, gain: 0.1 });
