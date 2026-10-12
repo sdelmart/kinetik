@@ -1,4 +1,4 @@
-import { solveFromState, makeKeyFn } from './solver.js';
+import { solveFromState, makeKeyFn, searchTowards } from './solver.js';
 import { createState } from './state.js';
 import { step } from './rules.js';
 
@@ -43,25 +43,53 @@ export function hintAvailability({ tokens, moves, par, seconds }) {
  * the current position. Null when the player has left the route.
  */
 export function hintFromSolution(state, level) {
-  const solution = level?.solution;
-  if (!solution?.length) return null;
+  const route = routeOf(level);
+  if (!route) return null;
+  const index = route.indexOf.get(route.key(state));
+  if (index === undefined || index >= route.moves.length) return null;
+  return { ok: true, direction: route.moves[index], remaining: route.moves.length - index };
+}
+
+/**
+ * Every position along a level's stored optimal solution, by state key. The
+ * key function is built from the level's *starting* state, so positions where
+ * pits have since been filled or plates broken are still keyed consistently.
+ */
+function routeOf(level) {
+  const moves = level?.solution;
+  if (!moves?.length) return null;
   let cursor = createState(level);
   const key = makeKeyFn(cursor);
-  const target = key(state);
-  for (let i = 0; i < solution.length; i++) {
-    if (key(cursor) === target) return { ok: true, direction: solution[i], remaining: solution.length - i };
-    const result = step(cursor, solution[i]);
+  const indexOf = new Map();
+  for (let i = 0; i <= moves.length; i++) {
+    if (!indexOf.has(key(cursor))) indexOf.set(key(cursor), i);
+    if (i === moves.length) break;
+    const result = step(cursor, moves[i]);
     if (!result) return null;
     cursor = result.state;
   }
-  return null;
+  return { key, indexOf, moves };
+}
+
+/**
+ * Off the stored route: rather than re-solving the whole level from scratch
+ * (too big a search on hard levels), find the shortest way back onto any
+ * point of the route and continue along it from there.
+ */
+export function hintBackToRoute(state, level) {
+  const route = routeOf(level);
+  if (!route) return null;
+  const found = searchTowards(state, route.key, (k) => route.indexOf.get(k), { maxStates: SOLVE_BUDGET });
+  if (!found.found || !found.moves.length) return null;
+  const rest = found.goal === null ? 0 : route.moves.length - found.goal;
+  return { ok: true, direction: found.moves[0], remaining: found.moves.length + rest };
 }
 
 /**
  * @returns {{ok: true, direction: string, remaining: number} | {ok: false, reason: string}}
  */
 export function computeHint(state, level) {
-  const onRoute = hintFromSolution(state, level);
+  const onRoute = hintFromSolution(state, level) ?? hintBackToRoute(state, level);
   if (onRoute) return onRoute;
   const { solved, moves } = solveFromState(state, { maxStates: SOLVE_BUDGET });
   if (!solved) return { ok: false, reason: 'unreachable' };
