@@ -372,6 +372,11 @@ app.get('/api/scores/:worldId/:levelId', readLimiter, (req, res) => {
       stars,
       achievedAt,
     }));
+  // Declared players who haven't finished this level yet still appear, last,
+  // with no score (shown as "—") — not 0, which would read as a finished run.
+  for (const name of new Set(PLAYERS.values())) {
+    if (!scores.some((s) => s.author === name)) scores.push({ author: name, score: null });
+  }
   res.json(scores);
 });
 
@@ -385,7 +390,13 @@ app.get('/api/scores/:worldId', readLimiter, (req, res) => {
     row.bestStars += s.stars;
     byAuthor.set(s.author, row);
   }
-  const ranking = [...byAuthor.values()].sort((a, b) => b.totalScore - a.totalScore);
+  // Every declared player is ranked, at 0 until they finish a level here.
+  for (const name of new Set(PLAYERS.values())) {
+    if (!byAuthor.has(name)) byAuthor.set(name, { author: name, totalScore: 0, levelsCleared: 0, bestStars: 0 });
+  }
+  const ranking = [...byAuthor.values()].sort(
+    (a, b) => b.totalScore - a.totalScore || a.author.localeCompare(b.author),
+  );
   res.json({ worldName: levelScores[0]?.worldName ?? null, ranking });
 });
 

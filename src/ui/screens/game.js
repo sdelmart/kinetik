@@ -20,6 +20,7 @@ import { recordsFor } from '../../state/save.js';
 import { GamepadWatcher } from '../gamepad.js';
 import { submitScore, fetchLevelLeaderboard } from '../../state/leaderboard.js';
 import { legendEntriesForLevel, legendSwatch } from '../legend.js';
+import { authorColor, authorInitial } from '../authorColor.js';
 
 export function gameScreen(app, { worldId, levelIndex }) {
   const world = app.findWorld(worldId);
@@ -368,9 +369,11 @@ export function gameScreen(app, { worldId, levelIndex }) {
             el(
               'div.leaderboard-row',
               { class: entry.author === communityName ? 'me' : '' },
-              el('span.leaderboard-rank', {}, `#${rank + 1}`),
+              // Players who haven't finished this level are listed without a rank or score.
+              el('span.leaderboard-rank', {}, entry.score === null ? '—' : `#${rank + 1}`),
+              el('span.author-avatar', { style: { background: authorColor(entry.author) } }, authorInitial(entry.author)),
               el('span.leaderboard-name', {}, entry.author),
-              el('span.leaderboard-score', {}, String(entry.score)),
+              el('span.leaderboard-score', {}, entry.score === null ? '—' : String(entry.score)),
             ),
           ),
         );
