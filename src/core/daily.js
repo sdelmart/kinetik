@@ -10,6 +10,7 @@ import pool from './daily.json';
 export const DAILY_WORLD_ID = 'daily';
 const EPOCH = Date.UTC(2024, 0, 1); // arbitrary fixed origin, never changes
 const DAY_MS = 86400000;
+const SOLUTION_DIRS = { u: 'up', r: 'right', d: 'down', l: 'left' };
 
 export function todayKey(date = new Date()) {
   return dateKey(date);
@@ -27,7 +28,11 @@ function dayNumber(dateKeyStr) {
 export function dailyLevelFor(dateKeyStr) {
   const index = ((dayNumber(dateKeyStr) % pool.length) + pool.length) % pool.length;
   const def = pool[index];
-  return parseCompact(def.rows, { id: `${DAILY_WORLD_ID}-${dateKeyStr}`, par: def.par });
+  return {
+    ...parseCompact(def.rows, { id: `${DAILY_WORLD_ID}-${dateKeyStr}`, par: def.par }),
+    // Same one-letter-per-move format as the campaign (see core/worlds.js), used by hints.
+    solution: def.solution ? [...def.solution].map((c) => SOLUTION_DIRS[c]) : null,
+  };
 }
 
 export function dailyWorld(dateKeyStr = todayKey()) {

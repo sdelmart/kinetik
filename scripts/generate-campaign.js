@@ -7,6 +7,10 @@
  *   options: --seconds=70 (search time per candidate)  --only=assembly,cryo
  *            --workers=5  --fresh (ignore results cached by a previous run)
  *            --count=4 (candidates per sector for this run)  --seed=N
+ *   node scripts/generate-campaign.js --daily=34 --write
+ *            regenerates the Daily Challenge pool (src/core/daily.json) instead:
+ *            30 levels, each using one sector's mechanics in rotation, at
+ *            mid-to-late sector difficulty.
  * Selection draws on every cached candidate of a sector, so a later run with
  * another --seed only adds options; it never throws earlier ones away.
  *
@@ -35,6 +39,8 @@ import { T } from '../src/core/constants.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataPath = resolve(here, '../src/core/campaign.json');
+const dailyPath = resolve(here, '../src/core/daily.json');
+const DAILY_POOL_SIZE = 30;
 
 // --- sectors -----------------------------------------------------------------
 
@@ -452,7 +458,8 @@ if (!isMainThread) {
   const { jobs, seconds } = workerData;
   for (const job of jobs) {
     const sector = SECTORS.find((s) => s.id === job.sector);
-    parentPort.postMessage(evolve(sector, job.slot, job.seed, seconds));
+    const result = evolve(sector, job.slot, job.seed, seconds);
+    parentPort.postMessage(result && { ...result, mode: job.mode ?? 'campaign' });
   }
 } else {
   const args = Object.fromEntries(
@@ -466,8 +473,13 @@ if (!isMainThread) {
   const sectors = SECTORS.filter((s) => !only || only.includes(s.id));
   const baseSeed = Number(args.seed ?? 20261009);
 
+  const daily = args.daily ? Number(args.daily) : 0;
   const jobs = [];
-  for (const [si, sector] of sectors.entries()) {
+  // Daily pool: every sector's mechanics in rotation, mid-to-late difficulty.
+  for (let i = 0; i < daily; i++) {
+    jobs.push({ mode: 'daily', sector: SECTORS[i % SECTORS.length].id, slot: 4 + ((i * 3) % 7), seed: baseSeed + 50000 + i * 13 });
+  }
+  for (const [si, sector] of daily ? [] : sectors.entries()) {
     const count = Number(args.count ?? CANDIDATES_PER_SECTOR);
     for (let i = 0; i < count; i++) {
       // Spread this run's candidates over the whole difficulty range.
@@ -481,7 +493,8 @@ if (!isMainThread) {
     ? readFileSync(cachePath, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line))
     : [];
   if (args.fresh) writeFileSync(cachePath, '');
-  const results = cached.filter((r) => sectors.some((sector) => sector.id === r.sector));
+  const mode = daily ? 'daily' : 'campaign';
+  const results = cached.filter((r) => (r.mode ?? 'campaign') === mode && (daily || sectors.some((sector) => sector.id === r.sector)));
   const pending = jobs.filter((j) => !results.some((r) => r.sector === j.sector && r.slot === j.slot && r.seed === j.seed));
   console.log(`cache: ${cachePath} (${results.length} already done)`);
 
@@ -510,6 +523,33 @@ if (!isMainThread) {
         }),
     ),
   );
+
+  if (daily) {
+    const usable = [];
+    for (const r of results.filter((x) => x.signatureMet)) {
+      if (!usable.some((u) => u.rows.join('') === r.rows.join(''))) usable.push(r);
+    }
+    // Keep the strongest, then interleave so consecutive days change mechanics.
+    const chosen = usable.sort((a, b) => b.fitness - a.fitness).slice(0, DAILY_POOL_SIZE);
+    chosen.sort((a, b) => SECTORS.findIndex((s) => s.id === a.sector) - SECTORS.findIndex((s) => s.id === b.sector) || a.seed - b.seed);
+    const bySector = SECTORS.map((sector) => chosen.filter((r) => r.sector === sector.id));
+    const ordered = [];
+    while (bySector.some((list) => list.length)) for (const list of bySector) if (list.length) ordered.push(list.shift());
+    const pool = ordered.map((r) => ({
+      sector: r.sector,
+      rows: r.rows,
+      par: parFor(r.moves.length),
+      solution: r.moves,
+      difficulty: Math.round(r.fitness),
+    }));
+    console.log(`\ndaily: ${pool.length} levels, moves ${ordered.map((r) => r.moves.length).join(', ')}`);
+    if (pool.length < DAILY_POOL_SIZE) console.log(`!! only ${pool.length} usable daily levels`);
+    if (args.write) {
+      writeFileSync(dailyPath, `${JSON.stringify(pool, null, 2)}\n`);
+      console.log(`wrote ${dailyPath}`);
+    }
+    process.exit(0);
+  }
 
   const campaign = [];
   for (const sector of sectors) {

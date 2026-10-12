@@ -8,7 +8,9 @@ import {
   DAILY_WORLD_ID,
 } from '../src/core/daily.js';
 import { validateLevel } from '../src/core/level.js';
-import { solve } from '../src/core/solver.js';
+import { replay } from '../src/core/solver.js';
+import { createState } from '../src/core/state.js';
+import { step } from '../src/core/rules.js';
 import pool from '../src/core/daily.json';
 
 describe('daily level selection', () => {
@@ -40,17 +42,34 @@ describe('daily level selection', () => {
 });
 
 describe('daily pool integrity', () => {
+  // Each level carries the optimal solution found by scripts/generate-campaign.js
+  // (--daily); replaying it proves solvability in milliseconds.
   it.each(pool.map((def, index) => ({ index, def })))(
-    'level $index is valid and solvable',
+    'level $index is valid and solved by its stored solution',
     ({ index }) => {
       const date = new Date(Date.UTC(2024, 0, 1 + index)).toISOString().slice(0, 10);
       const level = dailyLevelFor(date);
       expect(validateLevel(level)).toEqual({ ok: true });
-      const { solved, moves } = solve(level);
-      expect(solved).toBe(true);
-      expect(level.par).toBeGreaterThanOrEqual(moves.length);
+      expect(level.solution?.length).toBeGreaterThan(0);
+      expect(replay(level, level.solution).solved).toBe(true);
+      expect(level.par).toBeGreaterThanOrEqual(level.solution.length);
     },
   );
+
+  it('is as demanding as the campaign: every level needs at least 8 pushes', () => {
+    pool.forEach((_, index) => {
+      const date = new Date(Date.UTC(2024, 0, 1 + index)).toISOString().slice(0, 10);
+      const level = dailyLevelFor(date);
+      let state = createState(level);
+      let pushes = 0;
+      for (const dir of level.solution) {
+        const result = step(state, dir);
+        if (result.events.some((e) => e.type === 'push')) pushes++;
+        state = result.state;
+      }
+      expect(pushes, `daily ${index}`).toBeGreaterThanOrEqual(8);
+    });
+  });
 });
 
 describe('streaks', () => {
