@@ -64,7 +64,7 @@ const MAX_WORLDS = 500;
 if (PUBLISH_TOKENS.size === 0) {
   console.warn(
     '[kinetik-server] PUBLISH_TOKENS is empty — nobody will be able to publish. ' +
-      'Set it in .env, e.g. PUBLISH_TOKENS=Scotty:abc123,Anaïs:def456',
+      'Set it in .env, e.g. PUBLISH_TOKENS=Alex:abc123,Sam:def456',
   );
 }
 

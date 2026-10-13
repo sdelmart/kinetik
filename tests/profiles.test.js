@@ -10,8 +10,8 @@ import { read, write } from '../src/state/storage.js';
 
 describe('profiles', () => {
   it('creates a profile with a name and a stable id', () => {
-    const { profile } = createProfile([], 'Scott');
-    expect(profile.name).toBe('Scott');
+    const { profile } = createProfile([], 'Alex');
+    expect(profile.name).toBe('Alex');
     expect(profile.id).toBeTruthy();
   });
 
@@ -47,7 +47,7 @@ describe('profiles', () => {
     });
 
     it('wipes every namespaced key the profile owns, including achievements', () => {
-      const { profile } = createProfile([], 'Scott');
+      const { profile } = createProfile([], 'Alex');
       const keys = ['save', 'settings', 'worlds', 'hints', 'achievements'];
       for (const key of keys) write(profileKey(profile.id, key), { seeded: true });
 

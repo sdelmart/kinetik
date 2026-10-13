@@ -49,7 +49,7 @@ describe('community client', () => {
       .mockResolvedValue(new Response(JSON.stringify({ error: 'invalid_token' }), { status: 401 }));
     const result = await publishCommunityWorld('https://example.com', {
       token: 'bad',
-      author: 'Scott',
+      author: 'Alex',
       name: 'Test',
       world: { levels: [] },
     });

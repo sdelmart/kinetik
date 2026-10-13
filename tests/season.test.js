@@ -49,20 +49,20 @@ describe('season reset', () => {
 
 describe('server player keys', () => {
   it('reads named keys', () => {
-    const players = parsePlayers('Scotty:abc123, Anaïs:def456');
-    expect(players.get('abc123')).toBe('Scotty');
-    expect(players.get('def456')).toBe('Anaïs');
+    const players = parsePlayers('Alex:abc123, Zoé:def456');
+    expect(players.get('abc123')).toBe('Alex');
+    expect(players.get('def456')).toBe('Zoé');
     expect(players.size).toBe(2);
   });
 
   it('still accepts bare keys, naming them after their prefix', () => {
-    const players = parsePlayers('scotty-7f2k9,anais-x8a1z');
-    expect(players.get('scotty-7f2k9')).toBe('Scotty');
-    expect(players.get('anais-x8a1z')).toBe('Anais');
+    const players = parsePlayers('alex-7f2k9,zoe-x8a1z');
+    expect(players.get('alex-7f2k9')).toBe('Alex');
+    expect(players.get('zoe-x8a1z')).toBe('Zoe');
   });
 
   it('keeps everything after the first colon as the key', () => {
-    expect(parsePlayers('Scotty:a:b').get('a:b')).toBe('Scotty');
+    expect(parsePlayers('Alex:a:b').get('a:b')).toBe('Alex');
   });
 
   it('ignores empty entries', () => {

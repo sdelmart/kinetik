@@ -33,7 +33,7 @@ describe('leaderboard client', () => {
       worldId: 'assembly',
       levelId: 'assembly-1',
       worldName: 'Assemblage',
-      author: 'Scott',
+      author: 'Alex',
       moves: 10,
       pushes: 2,
       seconds: 30,
@@ -43,7 +43,7 @@ describe('leaderboard client', () => {
     const [url, options] = globalThis.fetch.mock.calls[0];
     expect(url).toBe('https://example.com/api/scores');
     expect(options.method).toBe('POST');
-    expect(JSON.parse(options.body)).toMatchObject({ worldId: 'assembly', author: 'Scott', score: 500 });
+    expect(JSON.parse(options.body)).toMatchObject({ worldId: 'assembly', author: 'Alex', score: 500 });
   });
 
   it('surfaces a server error payload', async () => {

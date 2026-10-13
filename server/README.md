@@ -34,7 +34,7 @@ nano .env
 ```
 
 Renseigne au minimum `PUBLISH_TOKENS` : un couple `Nom:clé` par joueur,
-séparés par des virgules, par exemple `Scotty:7f2k9q1x8a1z,Anaïs:m3p0v6t2r9wd`.
+séparés par des virgules, par exemple `Alex:7f2k9q1x8a1z,Sam:m3p0v6t2r9wd`.
 
 - Le **nom** est celui qui apparaît dans tous les classements, quel que soit
   le nom tapé dans le jeu : personne ne peut jouer sous le nom d'un autre.
@@ -45,7 +45,7 @@ séparés par des virgules, par exemple `Scotty:7f2k9q1x8a1z,Anaïs:m3p0v6t2r9wd
   il est reconnu.
 
 Une clé seule sans `Nom:` reste acceptée : le nom est alors la partie avant
-le premier tiret (`scotty-7f2k9` → `Scotty`).
+le premier tiret (`alex-7f2k9` → `Alex`).
 
 ### 4. Lancer en service (systemd)
 

@@ -1,9 +1,9 @@
 /**
- * PUBLISH_TOKENS lists the players and their keys: `Scotty:key1,Anaïs:key2`.
+ * PUBLISH_TOKENS lists the players and their keys: `Alex:key1,Sam:key2`.
  * The name is who the key belongs to — it's what shows on every leaderboard,
  * whatever name was typed in the game, so nobody can post as someone else. A
  * bare key (no `Name:`) is still accepted; its name is the part before the
- * first dash (`scott-7f2k9` -> `Scott`).
+ * first dash (`alex-7f2k9` -> `Alex`).
  *
  * @returns {Map<string, string>} key -> player name
  */
