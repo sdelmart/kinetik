@@ -557,7 +557,7 @@ export function editorScreen(app) {
     );
 
     // Levels
-    side.append(el('div.section-title', {}, `${t('level')}s`));
+    side.append(el('div.section-title', {}, t('levels_plural')));
     const list = el('div.level-list');
     world.levels.forEach((level, index) => {
       list.append(

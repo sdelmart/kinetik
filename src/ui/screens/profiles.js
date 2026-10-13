@@ -60,7 +60,7 @@ export function profilesScreen(app) {
               },
             },
             el('h3', {}, profile.name),
-            el('div.sub', {}, `${done} / ${levels} ${t('level').toLowerCase()}`),
+            el('div.sub', {}, `${done} / ${levels} ${t(levels === 1 ? 'level' : 'levels_plural').toLowerCase()}`),
             el(
               'div.sub',
               { style: { marginTop: '4px' } },

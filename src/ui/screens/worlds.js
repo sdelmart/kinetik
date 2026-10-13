@@ -39,7 +39,7 @@ export function worldsScreen(app) {
           el(
             'div.sub',
             {},
-            unlocked ? `${done} / ${total} ${t('level').toLowerCase()}` : t('locked_hint'),
+            unlocked ? `${done} / ${total} ${t(total === 1 ? 'level' : 'levels_plural').toLowerCase()}` : t('locked_hint'),
           ),
           unlocked && summary.stars > 0
             ? el('div', { style: { marginTop: '8px' } }, stars(Math.round(summary.stars / total), 3))
@@ -211,7 +211,7 @@ export function worldsScreen(app) {
           el('span.author-avatar', { style: { background: authorColor(summary.author) } }, authorInitial(summary.author)),
           t('community_by', { author: summary.author }),
         ),
-        el('div.sub', {}, `${summary.levelCount} ${t('level').toLowerCase()}`),
+        el('div.sub', {}, `${summary.levelCount} ${t(summary.levelCount === 1 ? 'level' : 'levels_plural').toLowerCase()}`),
         actions,
       );
       grid.append(card);

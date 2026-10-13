@@ -30,6 +30,7 @@ export default {
   worlds: 'Secteurs',
   world: 'Secteur',
   level: 'Niveau',
+  levels_plural: 'Niveaux',
   locked: 'Verrouillé',
   locked_hint: 'Terminez le secteur précédent',
   locked_level_hint: 'Terminez le niveau précédent',
